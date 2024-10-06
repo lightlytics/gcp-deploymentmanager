@@ -1,2 +1,7 @@
 imports:
 - path: resources/service-account.jinja
+  name: service-account.jinja
+
+resources:
+- name: dotan-test-sa
+  type: service-account.jinja
