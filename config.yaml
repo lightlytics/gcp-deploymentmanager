@@ -1,0 +1,2 @@
+imports:
+- path: resources/service-account.jinja
