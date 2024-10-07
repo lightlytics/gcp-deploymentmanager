@@ -3,5 +3,11 @@ imports:
   name: service-account.jinja
 
 resources:
-- name: dotan-test-sa
+- name: streamsec-sa
   type: service-account.jinja
+
+outputs:
+- name: service-account-email
+  value: $(ref.streamsec-sa.service-account-email)
+- name: service-account-key
+  value: $(ref.streamsec-sa.service-account-key)
