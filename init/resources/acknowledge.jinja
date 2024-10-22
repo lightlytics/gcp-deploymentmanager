@@ -33,6 +33,7 @@ resources:
 - name: StreamSecAuditLogsCollection
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
   properties:
+    parent: projects/{{ env['project'] }}/locations/us-central1
     function: {{ env['name'] }}-function
     runtime: python312
     entryPoint: process_log_event
