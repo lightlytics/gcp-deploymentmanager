@@ -11,3 +11,4 @@ resources:
   type: acknowledge.jinja
   properties:
     serviceAccountEmail: $(ref.streamsec-sa.service-account-email)
+    serviceAccountKey: $(ref.streamsec-sa.service-account-key)

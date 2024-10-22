@@ -29,3 +29,18 @@ resources:
   metadata:
     dependsOn:
       - sink
+
+- name: StreamSecAuditLogsCollection
+  type: gcp-types/cloudfunctions-v1:projects.locations.functions
+  properties:
+    function: {{ env['name'] }}-function
+    runtime: python312
+    entryPoint: process_log_event
+    eventTrigger:
+      eventType: google.pubsub.topic.publish
+      resource: $(ref.topic.name)
+    environmentVariables:
+      API_URL: {{ properties['apiUrl'] }}
+      API_TOKEN: {{ properties['apiToken'] }}
+      SERVICE_ACCOUNT_EMAIL: {{ properties['serviceAccountEmail'] }}
+      SERVICE_ACCOUNT_KEY: {{ properties['serviceAccountKey'] }}
