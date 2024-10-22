@@ -30,7 +30,7 @@ resources:
     dependsOn:
       - sink
 
-- name: StreamSecAuditLogsCollection
+- name: function
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
   properties:
     parent: projects/{{ env['project'] }}/locations/us-central1
