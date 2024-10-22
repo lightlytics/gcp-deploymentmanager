@@ -1,5 +1,13 @@
 import base64
 import json
+import os
+import requests
+import google.auth
+
+
+def get_project_id():
+    credentials, project_id = google.auth.default()
+    return project_id
 
 def process_log_event(event, context):
     """
@@ -8,24 +16,27 @@ def process_log_event(event, context):
          event (dict): The Pub/Sub message event.
          context (google.cloud.functions.Context): Metadata for the event.
     """
-    # Decode the Pub/Sub message
-    pubsub_message = base64.b64decode(event['data']).decode('utf-8')
-    
-    # Parse the message (assuming it's in JSON format)
+
     try:
-        log_event = json.loads(pubsub_message)
-        # Perform an action based on the log event
-        if 'severity' in log_event and log_event['severity'] == 'ERROR':
-            handle_error(log_event)
-        else:
-            handle_info(log_event)
-    except json.JSONDecodeError:
-        print(f"Failed to decode message: {pubsub_message}")
+        print(f"received the first message from deployment manager")
+        print(f"API_URL: {os.environ['API_URL']}, API_TOKEN: {os.environ['API_KEY']}, SERVICE_ACCOUNT_EMAIL: {os.environ['SERVICE_ACCOUNT_EMAIL']}, SERVICE_ACCOUNT_KEY: {os.environ['SERVICE_ACCOUNT_KEY']}")
+        response = requests.post(
+            f"https://{os.environ['API_URL'].replace('https://', '')}/gcp/account-acknowledge",
+            headers={
+                "Authorization": f"Bearer {os.environ['API_KEY']}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "project_id": get_project_id(),
+                "client_email": os.environ['SERVICE_ACCOUNT_EMAIL'],
+                "private_key": os.environ['SERVICE_ACCOUNT_KEY'],
+                "account_type": "GCP"
+            }
+        )
+        if response.status_code != 200:
+            print(f"Error: {response.text}")
+            raise Exception(f"Error: {response.text}")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise e
     
-def handle_error(log_event):
-    # Your logic to handle error logs
-    print(f"Error log event: {log_event}")
-    
-def handle_info(log_event):
-    # Your logic to handle other types of logs
-    print(f"Info log event: {log_event}")
