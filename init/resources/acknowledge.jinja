@@ -10,6 +10,7 @@ resources:
     sink: {{ env['name'] }}-sink
     destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['name'] }}-topic
     filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}"
+    writerIdentity: serviceAccount:{{ properties["serviceAccountEmail"] }}
 
 - name: subscription
   type: pubsub.v1.subscription
