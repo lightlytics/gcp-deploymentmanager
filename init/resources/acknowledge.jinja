@@ -7,7 +7,7 @@ resources:
 - name: service-account-publish-role
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
-    resource: projects/{{ env['project'] }}/topics/$(ref.topic.name)
+    resource: $(ref.topic.name)
     role: roles/pubsub.publisher
     member: "serviceAccount:{{ properties["serviceAccountEmail"] }}"
 
