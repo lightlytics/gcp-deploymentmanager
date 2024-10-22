@@ -12,18 +12,20 @@ resources:
       bindings:
       - role: roles/pubsub.publisher
         members:
-        - "serviceAccount:{{ properties["serviceAccountEmail"] }}"
+        - "serviceAccount:cloud-logs@system.gserviceaccount.com"
 
 - name: sink
   type: logging.v2.sink
   properties:
     sink: {{ env['name'] }}-sink
     destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['name'] }}-topic
-    filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}"
-    writerIdentity: serviceAccount:{{ properties["serviceAccountEmail"] }}
+    filter: protoPayload.methodName="google.pubsub.v1.Subscriber.CreateSubscription" AND protoPayload.resourceName="projects/{{ env['project'] }}/topics/{{ env['name'] }}-topic"
 
 - name: subscription
   type: pubsub.v1.subscription
   properties:
     subscription: {{ env['name'] }}-subscription
     topic: $(ref.topic.name)
+  metadata:
+    dependsOn:
+      - sink
