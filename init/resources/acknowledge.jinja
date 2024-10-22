@@ -5,11 +5,14 @@ resources:
     topic: {{ env['name'] }}-topic
 
 - name: service-account-publish-role
-  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  type: gcp-types/pubsub-v1:projects.topics.setIamPolicy
   properties:
     resource: $(ref.topic.name)
-    role: roles/pubsub.publisher
-    member: "serviceAccount:{{ properties["serviceAccountEmail"] }}"
+    policy:
+      bindings:
+      - role: roles/pubsub.publisher
+        members:
+        - "serviceAccount:{{ properties["serviceAccountEmail"] }}"
 
 - name: sink
   type: logging.v2.sink
