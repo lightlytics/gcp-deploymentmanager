@@ -1,20 +1,13 @@
 imports:
 - path: resources/service-account.jinja
   name: service-account.jinja
-# - path: resources/acknowledge.jinja.jinja
-#   name: acknowledge.jinja
+- path: resources/acknowledge.jinja
+  name: acknowledge.jinja
 
 resources:
 - name: streamsec-sa
   type: service-account.jinja
-# - name: streamsec-init-ack
-#   type: acknowledge.jinja.jinja
-#   properties:
-#     serviceAccountEmail: $(ref.streamsec-sa.service-account-email)
-
-
-outputs:
-- name: service-account-email
-  value: $(ref.streamsec-sa.service-account-email)
-- name: service-account-key
-  value: $(ref.streamsec-sa.service-account-key)
+- name: streamsec-init-ack
+  type: acknowledge.jinja
+  properties:
+    serviceAccountEmail: $(ref.streamsec-sa.service-account-email)
