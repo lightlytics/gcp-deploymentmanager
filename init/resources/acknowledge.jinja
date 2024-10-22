@@ -1,0 +1,35 @@
+resources:
+- name: topic
+  type: pubsub.v1.topic
+  properties:
+    topic: {{ env['name'] }}-topic
+
+- name: sink
+  type: logging.v2.sink
+  properties:
+    sink: {{ env['name'] }}-sink
+    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['name'] }}-topic
+    filter: resource.type="deployment"
+
+- name: subscription
+  type: pubsub.v1.subscription
+  properties:
+    subscription: {{ env['name'] }}-subscription
+    topic: $(ref.topic.name)
+
+- name: function
+  type: gcp-types/cloudfunctions-v1:projects.locations.functions
+  properties:
+    parent: projects/{{ env["project"] }}/locations/{{ properties["zone"] }}
+    function: {{ env['name'] }}-function
+    location: {{ properties["zone"] }}
+    runtime: python312
+    entryPoint: streamsec-audit-logs-collector
+    sourceArchiveUrl: gs://streamsec-public-artifacts/gcp-audit-log-collection.zip
+    eventTrigger:
+      eventType: google.pubsub.topic.publish
+      resource: $(ref.topic.name)
+    environmentVariables:
+      API_URL: {{ properties["url"] }}
+      API_TOKEN: {{ properties["token"] }}
+      SERVICE_ACCOUNT_EMAIL: {{ properties["serviceAccountEmail"] }}
