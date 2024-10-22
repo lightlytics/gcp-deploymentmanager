@@ -5,7 +5,7 @@ resources:
     topic: {{ env['name'] }}-topic
 
 - name: service-account-publish-role
-  type: gcp-types/pubsub-v1:projects.topics.setIamPolicy
+  type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
   properties:
     resource: $(ref.topic.name)
     policy:
