@@ -4,6 +4,13 @@ resources:
   properties:
     topic: {{ env['name'] }}-topic
 
+- name: service-account-publish-role
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    resource: projects/{{ env['project'] }}/topics/my-topic
+    role: roles/viewer
+    member: "serviceAccount:{{ properties["serviceAccountEmail"] }}"
+
 - name: sink
   type: logging.v2.sink
   properties:
