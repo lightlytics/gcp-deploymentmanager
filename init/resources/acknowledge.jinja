@@ -40,7 +40,7 @@ resources:
     eventTrigger:
       eventType: google.pubsub.topic.publish
       resource: $(ref.topic.name)
-    source: init_function.py
+    sourceArchiveUrl: gs://streamsec-public-artifacts/gcp-init-ack.zip
     environmentVariables:
       API_URL: {{ properties['apiUrl'] }}
       API_TOKEN: {{ properties['apiToken'] }}
