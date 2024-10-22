@@ -19,11 +19,11 @@ def process_log_event(event, context):
 
     try:
         print(f"received the first message from deployment manager")
-        print(f"API_URL: {os.environ['API_URL']}, API_TOKEN: {os.environ['API_KEY']}, SERVICE_ACCOUNT_EMAIL: {os.environ['SERVICE_ACCOUNT_EMAIL']}, SERVICE_ACCOUNT_KEY: {os.environ['SERVICE_ACCOUNT_KEY']}")
+        print(f"API_URL: {os.environ['API_URL']}, API_TOKEN: {os.environ['API_TOKEN']}, SERVICE_ACCOUNT_EMAIL: {os.environ['SERVICE_ACCOUNT_EMAIL']}, SERVICE_ACCOUNT_KEY: {os.environ['SERVICE_ACCOUNT_KEY']}")
         response = requests.post(
             f"https://{os.environ['API_URL'].replace('https://', '')}/gcp/account-acknowledge",
             headers={
-                "Authorization": f"Bearer {os.environ['API_KEY']}",
+                "Authorization": f"Bearer {os.environ['API_TOKEN']}",
                 "Content-Type": "application/json"
             },
             json={
