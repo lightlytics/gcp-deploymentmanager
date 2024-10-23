@@ -19,7 +19,7 @@ resources:
   properties:
     sink: {{ env['name'] }}-sink
     destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['name'] }}-topic
-    filter: protoPayload.methodName="google.pubsub.v1.Subscriber.CreateSubscription" AND protoPayload.resourceName="projects/{{ env['project'] }}/topics/{{ env['name'] }}-topic"
+    filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND protoPayload.methodName="v2.deploymentmanager.deployments.insert" AND operation.last=true AND severity="NOTICE"
 
 - name: subscription
   type: pubsub.v1.subscription
