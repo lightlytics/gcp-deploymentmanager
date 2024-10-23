@@ -10,7 +10,6 @@ resources:
 - name: streamsec-init-ack
   type: acknowledge.jinja
   properties:
-    serviceAccountEmail: $(ref.streamsec-sa.service-account-email)
     serviceAccountKey: $(ref.streamsec-sa.service-account-key)
     apiUrl: {{ API_URL }}
     apiToken: {{ API_TOKEN }}

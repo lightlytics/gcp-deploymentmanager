@@ -2,12 +2,6 @@ import base64
 import json
 import os
 import requests
-import google.auth
-
-
-def get_project_id():
-    credentials, project_id = google.auth.default()
-    return project_id
 
 def process_log_event(event, context):
     """
@@ -18,8 +12,12 @@ def process_log_event(event, context):
     """
 
     try:
-        print(f"received the first message from deployment manager")
-        print(f"PROJECT_ID: {get_project_id()}, API_URL: {os.environ['API_URL']}, API_TOKEN: {os.environ['API_TOKEN']}, SERVICE_ACCOUNT_EMAIL: {os.environ['SERVICE_ACCOUNT_EMAIL']}")
+        print(f"received deployment finished event from deployment manager")
+        
+        os.environ['SERVICE_ACCOUNT_KEY'] = base64.b64decode(os.environ['SERVICE_ACCOUNT_KEY']).decode('utf-8')
+        service_account_json = json.loads(os.environ['SERVICE_ACCOUNT_KEY'])
+        
+        
         response = requests.post(
             f"https://{os.environ['API_URL'].replace('https://', '')}/gcp/account-acknowledge",
             headers={
@@ -27,9 +25,9 @@ def process_log_event(event, context):
                 "Content-Type": "application/json"
             },
             json={
-                "project_id": get_project_id(),
-                "client_email": os.environ['SERVICE_ACCOUNT_EMAIL'],
-                "private_key": os.environ['SERVICE_ACCOUNT_KEY'],
+                "project_id": service_account_json.get('project_id'),
+                "client_email": service_account_json.get('client_email'),
+                "private_key": service_account_json.get('private_key'),
                 "account_type": "GCP"
             }
         )
