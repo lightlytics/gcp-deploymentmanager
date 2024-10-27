@@ -21,5 +21,14 @@ gcloud config set project <walkthrough-project-id/>
 
 Enable the needed APIs, which you will need for the integration.
 
-
 <walkthrough-enable-apis apis="deploymentmanager.googleapis.com"></walkthrough-enable-apis>
+
+Make sure the default GCP service account has the necessary permissions to create resources in the project. 
+
+```sh
+gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=serviceAccount:$(gcloud projects describe <walkthrough-project-id> --format='value(projectNumber)')@cloudservices.gserviceaccount.com --role=roles/resourcemanager.projectIamAdmin
+```
+
+## Update the configuration file
+Please modify the config.yaml file opened in the editor and modify {{ API_URL }} and {{ API_TOKEN }}
+with the values you received from Stream Security.
