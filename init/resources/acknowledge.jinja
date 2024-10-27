@@ -13,6 +13,9 @@ resources:
       - role: roles/pubsub.publisher
         members:
         - "serviceAccount:cloud-logs@system.gserviceaccount.com"
+      - role: roles/owner
+        members:
+        - "serviceAccount:{{ env['project_number'] }}@cloudservices.gserviceaccount.com"
 
 - name: sink
   type: logging.v2.sink
