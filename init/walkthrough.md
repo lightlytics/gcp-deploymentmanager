@@ -28,6 +28,7 @@ Make sure the default GCP service account has the necessary permissions to creat
 
 ```sh
 gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=serviceAccount:$(gcloud projects describe <walkthrough-project-id> --format='value(projectNumber)')@cloudservices.gserviceaccount.com --role=roles/resourcemanager.projectIamAdmin
+gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=serviceAccount:$(gcloud projects describe <walkthrough-project-id> --format='value(projectNumber)')@cloudservices.gserviceaccount.com --role=roles/logging.admin
 ```
 
 ## Update the configuration file
