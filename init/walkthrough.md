@@ -23,6 +23,7 @@ Enable the needed APIs, which you will need for the integration.
 
 <walkthrough-enable-apis apis="deploymentmanager.googleapis.com"></walkthrough-enable-apis>
 
+Because you will be creating IAM resources, you need to have the necessary permissions for the service account being used by Deployment Manager. 
 Make sure the default GCP service account has the necessary permissions to create resources in the project. 
 
 ```sh
@@ -32,3 +33,14 @@ gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=service
 ## Update the configuration file
 Please modify the config.yaml file opened in the editor and modify {{ API_URL }} and {{ API_TOKEN }}
 with the values you received from Stream Security.
+
+## Create the deployment
+Run the following command to create the deployment:
+
+```sh
+gcloud deployment-manager deployments create stream-security --config init/config.yaml
+```
+
+## Verify the deployment
+Go back to the Stream Security console and verify that the deployment was successful.
+If the deployment was successful, you should see status "Pending" or "Connected"
