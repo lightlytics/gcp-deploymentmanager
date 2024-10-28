@@ -33,7 +33,7 @@ gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=service
 
 ## Create the deployment
 * You can copy the commmand from Stream Security integration wizard.
-* You can change the region by adding region:{{ REGION }} to the properties.
+* You can change the region by adding region:{{ REGION }} to the properties (default: us-central1).
 
 ```sh
 gcloud deployment-manager deployments create stream-security --template init.jinja --properties apiUrl:{{ API_URL }},apiToken:{{ API_TOKEN }}
