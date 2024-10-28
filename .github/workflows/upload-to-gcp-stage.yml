@@ -17,13 +17,10 @@ jobs:
     
         - name: 'Set up Cloud SDK'
           uses: 'google-github-actions/setup-gcloud@v2'
-    
-        - name: 'Use gcloud CLI'
-          run: 'gcloud info'
 
         - name: Zip the folder
           run: |
-            zip -r gcp-init-ack.zip ./code/acknowledge
+            zip gcp-init-ack.zip code/acknowledge
 
         - name: Upload to GCP Bucket
           run: |
