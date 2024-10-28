@@ -1,0 +1,28 @@
+name: Zip and Upload to GCP
+
+on:
+  push:
+    branches:
+      - master # Change this if you want the action to run on different branches or triggers
+
+jobs:
+  zip-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - id: "auth"
+        uses: "google-github-actions/auth@v2"
+        with:
+          credentials_json: "${{ secrets.GCP_CREDENTIALS_STAGING }}"
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v2"
+
+      - name: Zip the folder
+        run: |
+          zip -r gcp-init-ack.zip ./code/acknowledge
+
+      - name: Upload to GCP Bucket
+        run: |
+          gsutil cp gcp-init-ack.zip gs://streamsec-public-artifacts
