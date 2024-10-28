@@ -20,7 +20,9 @@ jobs:
 
         - name: Zip the folder
           run: |
-            zip gcp-init-ack.zip code/acknowledge
+            pwd
+            cd ../
+            zip gcp-init-ack.zip ./code/acknowledge
 
         - name: Upload to GCP Bucket
           run: |
