@@ -4,8 +4,8 @@
   "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "zip -r gcp-audit-log-collection.zip . -x \"local/*\" \"mocks/*\" \"config/local.js\" \"*.yaml\" \"*.zip\"",
-    "build-windows": "7z a -tzip gcp-audit-log-collection.zip . -xr!local -xr!mocks -xr!config\\local.js -xr!.prettierrc -xr!*.yaml -xr!*.zip"
+    "build": "zip -r gcp-events-collection.zip . -x \"local/*\" \"mocks/*\" \"config/local.js\" \"*.yaml\" \"*.zip\"",
+    "build-windows": "7z a -tzip gcp-events-collection.zip . -xr!local -xr!mocks -xr!config\\local.js -xr!.prettierrc -xr!*.yaml -xr!*.zip"
   },
   "author": "",
   "license": "ISC",
