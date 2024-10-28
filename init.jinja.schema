@@ -1,0 +1,22 @@
+required:
+- apiUrl
+- apiToken
+
+properties:
+  apiUrl:
+    type: string
+    description: API URL of Stream Security
+
+  apiToken:
+    type: string
+    description: API Token of Stream Security
+
+  region:
+    type: string
+    default: us-central1
+    description: Region of the deployment
+  
+  bucket:
+    type: string
+    default: streamsec-production-public-artifacts
+    description: Bucket where the function code is stored

@@ -92,7 +92,7 @@ resources:
     function: streamsec-events-function
     runtime: nodejs20
     entryPoint: streamsec-audit-logs-collector
-    sourceArchiveUrl: gs://streamsec-production-public-artifacts/gcp-audit-log-collection.zip
+    sourceArchiveUrl: gs://{{ properties['bucket'] }}/gcp-audit-log-collection.zip
     eventTrigger:
       eventType: google.pubsub.topic.publish
       resource: $(ref.events-topic.name)
@@ -113,7 +113,7 @@ resources:
     eventTrigger:
       eventType: google.pubsub.topic.publish
       resource: $(ref.ack-topic.name)
-    sourceArchiveUrl: gs://streamsec-public-artifacts/gcp-init-ack.zip
+    sourceArchiveUrl: gs://{{ properties['bucket'] }}/gcp-init-ack.zip
     environmentVariables:
       API_URL: {{ properties['apiUrl'] }}
       API_TOKEN: {{ properties['apiToken'] }}
