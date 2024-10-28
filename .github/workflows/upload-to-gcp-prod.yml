@@ -2,7 +2,7 @@ name: Zip and Upload to GCP
 
 on:
   release:
-    types: [published]
+    types: [ published ]
 
 jobs:
   zip-and-upload:
@@ -21,7 +21,11 @@ jobs:
       - name: Zip the folder
         run: |
           zip -r gcp-init-ack.zip ./code/acknowledge
+          zip -r gcp-events-collection.zip ./code/events -x "local/*" "mocks/*" "config/local.js" "*.yaml" "*.zip"
+          zip -r gcp-flow-logs-collection.zip ./code/flowlogs -x "local/*" "mocks/*" "config/local.js" "*.yaml" "*.zip"
 
       - name: Upload to GCP Bucket
         run: |
           gsutil cp gcp-init-ack.zip gs://streamsec-production-public-artifacts
+          gsutil cp gcp-events-collection.zip gs://streamsec-production-public-artifacts
+          gsutil cp gcp-flow-logs-collection.zip.zip gs://streamsec-production-public-artifacts

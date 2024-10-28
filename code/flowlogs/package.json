@@ -1,0 +1,23 @@
+{
+  "name": "gcp-log-collectors",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "copy-proto": "yes | cp -r ../../shared/protobuf ./src/models/protobuf",
+    "copy-proto-windows": "robocopy ../../shared/protobuf ./src/models/protobuf",
+    "build": "zip -r gcp-flow-logs-collection.zip . -x \"local/*\" \"mocks/*\" \"config/local.js\" \"*.yaml\" \"*.zip\"",
+    "build-windows": "7z a -tzip gcp-flow-logs-collection.zip . -xr!local -xr!mocks -xr!config\\local.js -xr!.prettierrc -xr!*.yaml -xr!*.zip",
+    "dev-flowlogs": "node ./local/flowLogsLocal.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-cloud/storage": "^7.12.1",
+    "axios": "^1.7.7",
+    "config": "^3.3.12",
+    "google-protobuf": "^3.21.4",
+    "protobufjs": "^7.4.0"
+  }
+}
