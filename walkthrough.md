@@ -1,6 +1,6 @@
 # Explore Deployment Manager 
 
-## Overview
+## Overview 
 
 This is a walkthrough for integrating GCP project to Stream Security.
 This walkthrough assumes that you are familiar with YAML syntax and are comfortable running commands in a Linux terminal. 
