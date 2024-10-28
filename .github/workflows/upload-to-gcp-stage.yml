@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+        - uses: actions/checkout@v3
         - id: 'auth'
           uses: 'google-github-actions/auth@v2'
           with:
@@ -20,11 +21,7 @@ jobs:
 
         - name: Zip the folder
           run: |
-            pwd
-            ls
-            cd ../
-            ls
-            zip gcp-init-ack.zip ./code/acknowledge
+            zip -r gcp-init-ack.zip ./code/acknowledge
 
         - name: Upload to GCP Bucket
           run: |
