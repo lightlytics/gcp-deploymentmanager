@@ -1,9 +1,8 @@
 name: Zip and Upload to GCP
 
 on:
-  push:
-    branches:
-      - master # Change this if you want the action to run on different branches or triggers
+  release:
+    types: [published]
 
 jobs:
   zip-and-upload:
@@ -14,7 +13,7 @@ jobs:
       - id: "auth"
         uses: "google-github-actions/auth@v2"
         with:
-          credentials_json: "${{ secrets.GCP_CREDENTIALS_STAGING }}"
+          credentials_json: "${{ secrets.GCP_CREDENTIALS_PRODUCTION }}"
 
       - name: "Set up Cloud SDK"
         uses: "google-github-actions/setup-gcloud@v2"
@@ -25,4 +24,4 @@ jobs:
 
       - name: Upload to GCP Bucket
         run: |
-          gsutil cp gcp-init-ack.zip gs://streamsec-public-artifacts
+          gsutil cp gcp-init-ack.zip gs://streamsec-production-public-artifacts
