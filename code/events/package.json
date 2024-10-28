@@ -1,0 +1,18 @@
+{
+  "name": "gcp_audit_collector",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "zip -r gcp-audit-log-collection.zip . -x \"local/*\" \"mocks/*\" \"config/local.js\" \"*.yaml\" \"*.zip\"",
+    "build-windows": "7z a -tzip gcp-audit-log-collection.zip . -xr!local -xr!mocks -xr!config\\local.js -xr!.prettierrc -xr!*.yaml -xr!*.zip"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.2",
+    "axios": "^1.7.7",
+    "config": "^3.3.12"
+  }
+}
