@@ -1,0 +1,123 @@
+resources:
+- name: service-account
+  type: iam.v1.serviceAccount
+  properties:
+    accountId: streamsec-sa
+    displayName: "Streamsec Service Account"
+- type: gcp-types/iam-v1:projects.serviceAccounts.keys
+  name: service-account-key
+  properties:
+    parent: $(ref.service-account.name)
+    privateKeyType: TYPE_GOOGLE_CREDENTIALS_FILE
+  metadata:
+    dependsOn:
+      - service-account
+
+- name: service-account-viewer-role
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    resource: {{ env["project"] }}
+    role: roles/viewer
+    member: "serviceAccount:$(ref.service-account.email)"
+  metadata:
+    dependsOn:
+      - service-account
+
+- name: events-topic
+  type: pubsub.v1.topic
+  properties:
+    topic: streamsec-events-topic
+
+- name: ack-topic
+  type: pubsub.v1.topic
+  properties:
+    topic: streamsec-ack-topic
+
+- name: events-publish-role
+  type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
+  properties:
+    resource: $(ref.events-topic.name)
+    policy:
+      bindings:
+        - role: roles/pubsub.publisher
+          members:
+            - "serviceAccount:cloud-logs@system.gserviceaccount.com"
+
+- name: ack-publish-role
+  type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
+  properties:
+    resource: $(ref.ack-topic.name)
+    policy:
+      bindings:
+      - role: roles/pubsub.publisher
+        members:
+        - "serviceAccount:cloud-logs@system.gserviceaccount.com"
+
+- name: events-sink
+  type: logging.v2.sink
+  properties:
+    sink: streamsec-events-sink
+    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/streamsec-events-topic
+    filter: logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Factivity"
+
+- name: ack-sink
+  type: logging.v2.sink
+  properties:
+    sink: streamsec-ack-sink
+    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/streamsec-ack-topic
+    filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND protoPayload.methodName="v2.deploymentmanager.deployments.insert" AND operation.last=true AND severity="NOTICE"
+
+- name: events-subscription
+  type: pubsub.v1.subscription
+  properties:
+    subscription: events-subscription
+    topic: $(ref.events-topic.name)
+  metadata:
+    dependsOn:
+      - events-sink
+
+- name: ack-subscription
+  type: pubsub.v1.subscription
+  properties:
+    subscription: streamsec-ack-subscription
+    topic: $(ref.ack-topic.name)
+  metadata:
+    dependsOn:
+      - ack-sink
+
+- name: events-function
+  type: gcp-types/cloudfunctions-v1:projects.locations.functions
+  properties:
+    parent: projects/{{ env["project"] }}/locations/{{ properties['region'] }}
+    function: streamsec-events-function
+    runtime: nodejs20
+    entryPoint: streamsec-audit-logs-collector
+    sourceArchiveUrl: gs://streamsec-production-public-artifacts/gcp-audit-log-collection.zip
+    eventTrigger:
+      eventType: google.pubsub.topic.publish
+      resource: $(ref.events-topic.name)
+    environmentVariables:
+      API_URL: {{ properties['apiUrl'] }}
+      API_TOKEN: {{ properties['apiToken'] }}
+  metadata:
+    dependsOn:
+      - events-subscription
+
+- name: ack-function
+  type: gcp-types/cloudfunctions-v1:projects.locations.functions
+  properties:
+    parent: projects/{{ env['project'] }}/locations/{{ properties['region'] }}
+    function: streamsec-ack-function
+    runtime: python312
+    entryPoint: process_log_event
+    eventTrigger:
+      eventType: google.pubsub.topic.publish
+      resource: $(ref.ack-topic.name)
+    sourceArchiveUrl: gs://streamsec-public-artifacts/gcp-init-ack.zip
+    environmentVariables:
+      API_URL: {{ properties['apiUrl'] }}
+      API_TOKEN: {{ properties['apiToken'] }}
+      SERVICE_ACCOUNT_KEY: $(ref.service-account-key.privateKeyData)
+  metadata:
+    dependsOn:
+      - ack-subscription
