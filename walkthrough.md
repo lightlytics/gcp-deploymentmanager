@@ -39,7 +39,7 @@ with the values you received from Stream Security.
 Run the following command to create the deployment:
 
 ```sh
-gcloud deployment-manager deployments create stream-security-init --config init/config.yaml
+gcloud deployment-manager deployments create stream-security --config config.yaml
 ```
 
 ## Verify the deployment
