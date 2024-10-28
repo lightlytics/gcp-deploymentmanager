@@ -29,4 +29,4 @@ jobs:
         run: |
           gsutil cp gcp-init-ack.zip gs://streamsec-public-artifacts
           gsutil cp gcp-events-collection.zip gs://streamsec-public-artifacts
-          gsutil cp gcp-flow-logs-collection.zip.zip gs://streamsec-public-artifacts
+          gsutil cp gcp-flow-logs-collection.zip gs://streamsec-public-artifacts
