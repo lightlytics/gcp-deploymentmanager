@@ -31,15 +31,12 @@ gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=service
 gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=serviceAccount:$(gcloud projects describe <walkthrough-project-id> --format='value(projectNumber)')@cloudservices.gserviceaccount.com --role=roles/logging.admin
 ```
 
-## Update the configuration file
-Please modify the config.yaml file opened in the editor and modify {{ API_URL }} and {{ API_TOKEN }}
-with the values you received from Stream Security.
-
 ## Create the deployment
 Run the following command to create the deployment:
+You can copy the commmand from Stream Security integration wizard.
 
 ```sh
-gcloud deployment-manager deployments create stream-security --config config.yaml
+gcloud deployment-manager deployments create stream-security --template init.jinja --properties region:{{ REGION }},apiUrl:{{ API_URL }},apiToken:{{ API_TOKEN }}
 ```
 
 ## Verify the deployment
