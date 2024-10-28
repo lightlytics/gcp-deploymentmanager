@@ -99,6 +99,9 @@ resources:
     environmentVariables:
       API_URL: {{ properties['apiUrl'] }}
       API_TOKEN: {{ properties['apiToken'] }}
+  metadata:
+    dependsOn:
+      - events-subscription
 
 - name: ack-function
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
@@ -117,4 +120,4 @@ resources:
       SERVICE_ACCOUNT_KEY: $(ref.service-account-key.privateKeyData)
   metadata:
     dependsOn:
-      - subscription
+      - ack-subscription
