@@ -1,15 +1,11 @@
 imports:
-- path: resources/service-account.jinja
-  name: service-account.jinja
-- path: resources/acknowledge.jinja
-  name: acknowledge.jinja
+- path: resources/init.jinja
+  name: init.jinja
 
 resources:
-- name: streamsec-sa
-  type: service-account.jinja
-- name: streamsec-init-ack
-  type: acknowledge.jinja
+- name: streamsec-init
+  type: init.jinja
   properties:
-    serviceAccountKey: $(ref.streamsec-sa.service-account-key)
+    region: us-central1
     apiUrl: {{ API_URL }}
     apiToken: {{ API_TOKEN }}

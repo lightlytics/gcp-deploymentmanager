@@ -1,0 +1,16 @@
+resources:
+
+- name: StreamSecAuditLogsCollection
+  type: gcp-types/cloudfunctions-v1:projects.locations.functions
+  properties:
+    parent: projects/{{ env["project"] }}/locations/{{ properties['region'] }}
+    function: {{ env['name'] }}-function
+    runtime: nodejs20
+    entryPoint: streamsec-audit-logs-collector
+    sourceArchiveUrl: gs://streamsec-production-public-artifacts/gcp-audit-log-collection.zip
+    eventTrigger:
+      eventType: google.pubsub.topic.publish
+      resource: $(ref.audit-logs-topic.name)
+    environmentVariables:
+      API_URL: {{ properties['apiUrl'] }}
+      API_TOKEN: {{ properties['apiToken'] }}
