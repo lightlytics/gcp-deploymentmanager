@@ -3,7 +3,7 @@ name: Zip and Upload to GCP
 on:
   push:
     branches:
-      - main  # Change this if you want the action to run on different branches or triggers
+      - master  # Change this if you want the action to run on different branches or triggers
 
 jobs:
   zip-and-upload:
