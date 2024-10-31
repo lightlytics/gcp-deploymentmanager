@@ -2,8 +2,8 @@ resources:
 - name: service-account
   type: iam.v1.serviceAccount
   properties:
-    accountId: streamsec-sa
-    displayName: "Streamsec Service Account"
+    accountId: {{ env['deployment'] }}-sa
+    displayName: "Stream Security Service Account"
 - type: gcp-types/iam-v1:projects.serviceAccounts.keys
   name: service-account-key
   properties:
@@ -26,12 +26,12 @@ resources:
 - name: events-topic
   type: pubsub.v1.topic
   properties:
-    topic: streamsec-events-topic
+    topic: {{ env['deployment'] }}-events-topic
 
 - name: ack-topic
   type: pubsub.v1.topic
   properties:
-    topic: streamsec-ack-topic
+    topic: {{ env['deployment'] }}-ack-topic
 
 - name: events-publish-role
   type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
@@ -56,15 +56,15 @@ resources:
 - name: events-sink
   type: logging.v2.sink
   properties:
-    sink: streamsec-events-sink
-    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/streamsec-events-topic
+    sink: {{ env['deployment'] }}-events-sink
+    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-events-topic
     filter: logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Factivity"
 
 - name: ack-sink
   type: logging.v2.sink
   properties:
-    sink: streamsec-ack-sink
-    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/streamsec-ack-topic
+    sink: {{ env['deployment'] }}-ack-sink
+    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-ack-topic
     filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND protoPayload.methodName="v2.deploymentmanager.deployments.insert" AND operation.last=true AND severity="NOTICE"
 
 - name: events-subscription
@@ -79,7 +79,7 @@ resources:
 - name: ack-subscription
   type: pubsub.v1.subscription
   properties:
-    subscription: streamsec-ack-subscription
+    subscription: {{ env['deployment'] }}-ack-subscription
     topic: $(ref.ack-topic.name)
   metadata:
     dependsOn:
@@ -89,9 +89,9 @@ resources:
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
   properties:
     parent: projects/{{ env["project"] }}/locations/{{ properties['region'] }}
-    function: streamsec-events-function
+    function: {{ env['deployment'] }}-events-function
     runtime: nodejs20
-    entryPoint: streamsec-audit-logs-collector
+    entryPoint: {{ env['deployment'] }}-audit-logs-collector
     sourceArchiveUrl: gs://{{ properties['bucket'] }}/gcp-events-collection.zip
     eventTrigger:
       eventType: google.pubsub.topic.publish
@@ -107,7 +107,7 @@ resources:
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
   properties:
     parent: projects/{{ env['project'] }}/locations/{{ properties['region'] }}
-    function: streamsec-ack-function
+    function: {{ env['deployment'] }}-ack-function
     runtime: python312
     entryPoint: process_log_event
     eventTrigger:
