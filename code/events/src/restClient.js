@@ -1,6 +1,15 @@
 const axios = require('axios')
 const config = require('config')
 
+function formatUrl(url) {
+  // Ensure the URL starts with "http://" or "https://"
+  // Remove trailing forward slash if present
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return `https://${url.replace(/\/+$/, '')}`
+  }
+  return url.replace(/\/+$/, '')
+}
+
 class RestClient {
   constructor(options) {
     this.apiUrl = config.get('apiUrl')
@@ -13,7 +22,7 @@ class RestClient {
 
     try {
       this.baseApiUrl = new URL(
-        `${this.apiUrl}/api/${this.apiVersion}/${options.apiPath}/`,
+        `${formatUrl(this.apiUrl)}/api/${this.apiVersion}/${options.apiPath}/`,
       )
       console.log(`Current API url: ${this.baseApiUrl}`)
     } catch (e) {
