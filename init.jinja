@@ -27,11 +27,13 @@ resources:
   type: pubsub.v1.topic
   properties:
     topic: {{ env['deployment'] }}-events-topic
+    messageRetentionDuration: 259200s
 
 - name: ack-topic
   type: pubsub.v1.topic
   properties:
     topic: {{ env['deployment'] }}-ack-topic
+    messageRetentionDuration: 259200s
 
 - name: events-publish-role
   type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
@@ -42,6 +44,7 @@ resources:
         - role: roles/pubsub.publisher
           members:
             - "serviceAccount:cloud-logs@system.gserviceaccount.com"
+            - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
 
 - name: ack-publish-role
   type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
@@ -52,6 +55,7 @@ resources:
       - role: roles/pubsub.publisher
         members:
         - "serviceAccount:cloud-logs@system.gserviceaccount.com"
+        - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
 
 - name: events-sink
   type: logging.v2.sink
