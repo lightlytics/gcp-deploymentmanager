@@ -1,8 +1,9 @@
 class FlowLogsBatch {
-  constructor(flowLogsSerializedBatch, recordCount) {
+  constructor(flowLogsSerializedBatch, accountId, recordCount) {
     return {
       flowLogRecords: flowLogsSerializedBatch,
       recordCount,
+      accountId,
       isCompressed: true,
     }
   }

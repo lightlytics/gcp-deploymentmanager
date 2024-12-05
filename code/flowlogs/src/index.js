@@ -24,8 +24,9 @@ const processVPCFlowLogs = async (contentString) => {
     return
   }
 
+  const accountId = logs[0].interfaceId
   const flowsBatch = {
-    accountIdString: logs[0].interfaceId,
+    accountIdString: accountId,
     deviceType: FlowLogsDeviceTypeEnum.values.GCP_FLOW_LOGS,
     vpcId: logs[0].vpcId,
     logs,
@@ -45,6 +46,7 @@ const processVPCFlowLogs = async (contentString) => {
   try {
     const response = await httpClient.postFlowLogsBatch(
       protoBatch,
+      accountId,
       flowsBatch.logs.length,
     )
     console.log(
