@@ -19,6 +19,10 @@ Every command requires a project ID. Set a default project ID so you do not need
 gcloud config set project <walkthrough-project-id/> 
 ```
 
+Enable the deployment manager API
+
+<walkthrough-enable-apis apis="deploymentmanager.googleapis.com"></walkthrough-enable-apis>
+
 Because you will be creating IAM resources, you need to have the necessary permissions for the service account being used by Deployment Manager. For that we will create a custom role and assign it to the default GCP API service account in the project.
 
 ```sh
@@ -31,8 +35,7 @@ gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=service
 
 ## Enable Necessary APIs
 
-Enable the necessary APIs, which you will need for the integration.
-<walkthrough-enable-apis apis="deploymentmanager.googleapis.com"></walkthrough-enable-apis>
+Enable the rest of the necessary APIs, which you will need for the integration.
 <walkthrough-enable-apis apis="cloudresourcemanager.googleapis.com"></walkthrough-enable-apis>
 <walkthrough-enable-apis apis="cloudfunctions.googleapis.com"></walkthrough-enable-apis>
 <walkthrough-enable-apis apis="pubsub.googleapis.com"></walkthrough-enable-apis>
