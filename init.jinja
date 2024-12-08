@@ -22,6 +22,7 @@ resources:
   metadata:
     dependsOn:
       - service-account
+      - service-account-key
 
 - name: events-topic
   type: pubsub.v1.topic
@@ -34,28 +35,6 @@ resources:
   properties:
     topic: {{ env['deployment'] }}-ack-topic
     messageRetentionDuration: 259200s
-
-- name: events-publish-role
-  type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
-  properties:
-    resource: $(ref.events-topic.name)
-    policy:
-      bindings:
-        - role: roles/pubsub.publisher
-          members:
-            - "serviceAccount:cloud-logs@system.gserviceaccount.com"
-            - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
-
-- name: ack-publish-role
-  type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
-  properties:
-    resource: $(ref.ack-topic.name)
-    policy:
-      bindings:
-      - role: roles/pubsub.publisher
-        members:
-        - "serviceAccount:cloud-logs@system.gserviceaccount.com"
-        - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
 
 - name: events-sink
   type: logging.v2.sink
@@ -70,6 +49,34 @@ resources:
     sink: {{ env['deployment'] }}-ack-sink
     destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-ack-topic
     filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND protoPayload.methodName="v2.deploymentmanager.deployments.insert" AND operation.last=true AND severity="NOTICE"
+
+- name: events-publish-role
+  type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
+  properties:
+    resource: $(ref.events-topic.name)
+    policy:
+      bindings:
+        - role: roles/pubsub.publisher
+          members:
+            - "serviceAccount:cloud-logs@system.gserviceaccount.com"
+            - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
+  metadata:
+    dependsOn:
+      - events-sink
+
+- name: ack-publish-role
+  type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
+  properties:
+    resource: $(ref.ack-topic.name)
+    policy:
+      bindings:
+      - role: roles/pubsub.publisher
+        members:
+        - "serviceAccount:cloud-logs@system.gserviceaccount.com"
+        - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
+  metadata:
+    dependsOn:
+      - ack-sink
 
 - name: events-subscription
   type: pubsub.v1.subscription
