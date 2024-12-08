@@ -4,8 +4,9 @@ resources:
   properties:
     accountId: {{ env['deployment'] }}-sa
     displayName: "Stream Security Service Account"
-- type: gcp-types/iam-v1:projects.serviceAccounts.keys
-  name: service-account-key
+
+- name: service-account-key
+  type: gcp-types/iam-v1:projects.serviceAccounts.keys
   properties:
     parent: $(ref.service-account.name)
     privateKeyType: TYPE_GOOGLE_CREDENTIALS_FILE
@@ -23,6 +24,13 @@ resources:
     dependsOn:
       - service-account
       - service-account-key
+
+- name: service-account-custom-role
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    resource: {{ env["project"] }}
+    role: projects/{{ env["project"] }}/roles/StreamsecReadOnlyRole
+    member: "serviceAccount:$(ref.service-account.email)"
 
 - name: events-topic
   type: pubsub.v1.topic

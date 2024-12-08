@@ -25,9 +25,10 @@ Enable the deployment manager API
 
 
 Because you will be creating IAM resources, you need to have the necessary permissions for the service account being used by Deployment Manager. For that we will create a custom role and assign it to the default GCP API service account in the project.
+These permissions will only be used by the deployment manager to create resources in the project and will not be used by the Stream Security integration.
 
 ```sh
-gcloud iam roles create StreamsecCustomRole --project <walkthrough-project-id> --file custom-role.yaml
+gcloud iam roles create StreamsecCustomRole --project <walkthrough-project-id> --file deployment-manager-custom-role.yaml.yaml
 ```
 
 ```sh
@@ -51,6 +52,14 @@ gcloud beta services identity create --service=logging.googleapis.com --project 
 ```
 
 ## Create the deployment
+First you need to create our custom read-only role for the service account that will be used by the Stream Security integration.
+(The default viewer role will also be used by the integration)
+
+```sh
+gcloud iam roles create StreamsecReadOnlyRole --project <walkthrough-project-id> --file custom-ro-role.yaml
+```
+
+
 * You can copy the commmand from Stream Security integration wizard.
 * You can change the region by adding region:{{ REGION }} to the properties (default: us-central1).
 

@@ -1,0 +1,5 @@
+title: "StreamsecReadOnlyRole"
+description: "Custom role for adding read-only permissions for Stream Security integration"
+stage: "GA"
+includedPermissions:
+  - storage.buckets.getIamPolicy

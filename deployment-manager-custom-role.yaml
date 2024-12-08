@@ -6,3 +6,5 @@ includedPermissions:
   - pubsub.topics.setIamPolicy
   - logging.sinks.create
   - logging.sinks.delete
+  - iam.roles.create
+  - iam.roles.delete
