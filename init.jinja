@@ -1,3 +1,5 @@
+{% set random_id = ("%06x" % (random() * 0xFFFFFF)) %}
+
 resources:
 - name: service-account
   type: iam.v1.serviceAccount
@@ -18,7 +20,7 @@ resources:
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: {{ env['deployment'] }}-custom-role
+    roleId: StreamsecRORole-{{ random_id }}
     role:
       title: Stream Security Extended RO Role
       description: Stream Security Extended RO Role
