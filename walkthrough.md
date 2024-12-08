@@ -28,7 +28,7 @@ Because you will be creating IAM resources, you need to have the necessary permi
 These permissions will only be used by the deployment manager to create resources in the project and will not be used by the Stream Security integration.
 
 ```sh
-gcloud iam roles create StreamsecCustomRole --project <walkthrough-project-id> --file deployment-manager-custom-role.yaml.yaml
+gcloud iam roles create StreamsecCustomRole --project <walkthrough-project-id> --file deployment-manager-custom-role.yaml
 ```
 
 ```sh
