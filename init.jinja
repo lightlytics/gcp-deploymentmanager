@@ -16,17 +16,6 @@ resources:
     dependsOn:
       - service-account
 
-- name: custom-role
-  type: gcp-types/iam-v1:projects.roles
-  properties:
-    parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole-{{ random_id }}
-    role:
-      title: Stream Security Extended RO Role
-      description: Stream Security Extended RO Role
-      includedPermissions:
-      - storage.buckets.getIamPolicy
-
 - name: service-account-viewer-role
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
@@ -42,7 +31,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/{{ env['deployment'] }}-custom-role
+    role: projects/{{ env["project"] }}/roles/StreamsecCustomRORole
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:

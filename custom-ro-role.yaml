@@ -1,0 +1,5 @@
+title: "StreamsecCustomRole"
+description: "Custom role to perform specific actions for Stream Security Deployment Manager operations"
+stage: "GA"
+includedPermissions:
+  - storage.buckets.getIamPolicy
