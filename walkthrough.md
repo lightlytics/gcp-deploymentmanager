@@ -41,6 +41,7 @@ Enable the rest of the necessary APIs, which you will need for the integration.
 <walkthrough-enable-apis apis="pubsub.googleapis.com"></walkthrough-enable-apis>
 <walkthrough-enable-apis apis="cloudbuild.googleapis.com"></walkthrough-enable-apis>
 <walkthrough-enable-apis apis="admin.googleapis.com"></walkthrough-enable-apis>
+<walkthrough-enable-apis apis="bigquery.googleapis.com"></walkthrough-enable-apis>
 
 ## Create the deployment
 * You can copy the commmand from Stream Security integration wizard.
