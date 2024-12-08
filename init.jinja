@@ -1,5 +1,3 @@
-{% set random_id = ("%06x" % (random() * 0xFFFFFF)) %}
-
 resources:
 - name: service-account
   type: iam.v1.serviceAccount
@@ -33,9 +31,6 @@ resources:
     resource: {{ env["project"] }}
     role: projects/{{ env["project"] }}/roles/StreamsecReadOnlyRole
     member: "serviceAccount:$(ref.service-account.email)"
-  metadata:
-    dependsOn:
-      - custom-role
 
 - name: events-topic
   type: pubsub.v1.topic
