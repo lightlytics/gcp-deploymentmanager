@@ -31,7 +31,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecCustomRORole
+    role: projects/{{ env["project"] }}/roles/StreamsecReadOnlyRole
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
