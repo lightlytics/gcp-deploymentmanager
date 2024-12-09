@@ -86,24 +86,6 @@ resources:
     dependsOn:
       - ack-sink
 
-- name: events-subscription
-  type: pubsub.v1.subscription
-  properties:
-    subscription: events-subscription
-    topic: $(ref.events-topic.name)
-  metadata:
-    dependsOn:
-      - events-sink
-
-- name: ack-subscription
-  type: pubsub.v1.subscription
-  properties:
-    subscription: {{ env['deployment'] }}-ack-subscription
-    topic: $(ref.ack-topic.name)
-  metadata:
-    dependsOn:
-      - ack-sink
-
 - name: events-function
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
   properties:
@@ -121,7 +103,7 @@ resources:
       API_TOKEN: {{ properties['apiToken'] }}
   metadata:
     dependsOn:
-      - events-subscription
+      - events-publish-role
 
 - name: ack-function
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
@@ -140,4 +122,4 @@ resources:
       SERVICE_ACCOUNT_KEY: $(ref.service-account-key.privateKeyData)
   metadata:
     dependsOn:
-      - ack-subscription
+      - ack-publish-role
