@@ -25,12 +25,16 @@ resources:
       - service-account
       - service-account-key
 
-- name: service-account-custom-role
+- name: service-account-security-reviewer-role
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecReadOnlyRole
+    role: roles/iam.securityReviewer
     member: "serviceAccount:$(ref.service-account.email)"
+  metadata:
+    dependsOn:
+      - service-account
+      - service-account-key
 
 - name: events-topic
   type: pubsub.v1.topic
