@@ -53,7 +53,7 @@ resources:
   properties:
     sink: {{ env['deployment'] }}-events-sink
     destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-events-topic
-    filter: (logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Factivity" OR logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Fdata_access") AND protoPayload.methodName:* AND protoPayload.authenticationInfo.principalEmail:* AND NOT resource.type="k8s_cluster"
+    filter: (logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Factivity" OR logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Fdata_access") AND protoPayload.methodName:* AND protoPayload.authenticationInfo.principalEmail:* AND NOT resource.type="k8s_cluster" AND NOT protoPayload.methodName=~"(?i).list"
 
 - name: ack-sink
   type: logging.v2.sink
