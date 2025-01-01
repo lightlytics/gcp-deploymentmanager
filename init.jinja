@@ -105,6 +105,7 @@ resources:
     environmentVariables:
       API_URL: {{ properties['apiUrl'] }}
       API_TOKEN: {{ properties['apiToken'] }}
+    ingressSettings: ALLOW_INTERNAL_ONLY
   metadata:
     dependsOn:
       - events-publish-role
@@ -124,6 +125,7 @@ resources:
       API_URL: {{ properties['apiUrl'] }}
       API_TOKEN: {{ properties['apiToken'] }}
       SERVICE_ACCOUNT_KEY: $(ref.service-account-key.privateKeyData)
+    ingressSettings: ALLOW_INTERNAL_ONLY
   metadata:
     dependsOn:
       - ack-publish-role
