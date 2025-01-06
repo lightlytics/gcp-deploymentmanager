@@ -59,6 +59,11 @@ gcloud beta services identity create --service=logging.googleapis.com --project 
 gcloud deployment-manager deployments create stream-security --template init.jinja --properties apiUrl:{{ API_URL }},apiToken:{{ API_TOKEN }}
 ```
 
+### ⚠️ Troubleshoot ⚠️
+
+* service account does not exist error: please delete the deployment and create again. (gcloud deployment-manager deployments delete stream-security)
+
+
 ## Verify the deployment
 Go back to the Stream Security console and verify that the deployment was successful.
 If the deployment was successful, you should see status "Pending" or "Connected"
