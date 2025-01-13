@@ -6,8 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "copy-proto": "yes | cp -r ../../shared/protobuf ./src/models/protobuf",
     "copy-proto-windows": "robocopy ../../shared/protobuf ./src/models/protobuf",
-    "build": "zip -r gcp-flow-logs-collection.zip . -x \"local/*\" \"mocks/*\" \"config/local.js\" \"*.yaml\" \"*.zip\"",
-    "build-windows": "7z a -tzip gcp-flow-logs-collection.zip . -xr!local -xr!mocks -xr!config\\local.js -xr!.prettierrc -xr!*.yaml -xr!*.zip",
+    "build": "zip -r gcp-flow-logs-collection.zip . -x \"local/*\" \"node_modules/*\" \"mocks/*\" \"config/local.js\" \"*.yaml\" \"*.zip\"",
+    "build-windows": "7z a -tzip gcp-flow-logs-collection.zip . -xr!local -xr!node_modules -xr!mocks -xr!config\\local.js -xr!.prettierrc -xr!*.yaml -xr!*.zip",
     "dev-flowlogs": "node ./local/flowLogsLocal.js"
   },
   "author": "",

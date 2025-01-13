@@ -95,7 +95,7 @@ resources:
   properties:
     parent: projects/{{ env["project"] }}/locations/{{ properties['region'] }}
     function: {{ env['deployment'] }}-events-function
-    runtime: nodejs20
+    runtime: nodejs22
     timeout: 5s
     entryPoint: streamsec-audit-logs-collector
     sourceArchiveUrl: gs://{{ properties['bucket'] }}/gcp-events-collection.zip

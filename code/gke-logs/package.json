@@ -1,0 +1,19 @@
+{
+  "name": "gcp-log-collectors",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "zip -r gcp-gke-logs-collection.zip . -x \"local/*\" \"node_modules/*\" \"mocks/*\" \"config/local.js\" \"*.yaml\" \"*.zip\"",
+    "build-windows": "7z a -tzip gcp-gke-logs-collection.zip . -xr!local -xr!node_modules -xr!mocks -xr!config\\local.js -xr!.prettierrc -xr!*.yaml -xr!*.zip",
+    "dev-gke": "node ./local/gkeLogsLocal.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@google-cloud/storage": "^7.12.1",
+    "axios": "^1.7.7",
+    "config": "^3.3.12"
+  }
+}
