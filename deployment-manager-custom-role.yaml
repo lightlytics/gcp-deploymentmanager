@@ -1,0 +1,10 @@
+title: "StreamsecCustomRole"
+description: "Custom role to perform specific actions for Stream Security Deployment Manager operations"
+stage: "GA"
+includedPermissions:
+  - resourcemanager.projects.setIamPolicy
+  - pubsub.topics.setIamPolicy
+  - logging.sinks.create
+  - logging.sinks.delete
+  - iam.roles.create
+  - iam.roles.delete

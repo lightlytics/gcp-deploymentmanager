@@ -57,15 +57,15 @@ class RestClient {
     }
   }
 
-  async postFlowLogsBatch(flowLogsSerializedBatch, recordCount) {
-    if (!flowLogsSerializedBatch) {
+  async postFlowLogsBatch(flowLogsBatchSerialized, accountId, recordCount = 0) {
+    if (!flowLogsBatchSerialized) {
       throw new Error(
-        'Missing the required parameter \'flowLogsSerializedBatch\' when calling postFlowLogsBatch',
+        'Missing the required parameter \'flowLogsBatchSerialized\' when calling postFlowLogsBatch',
       )
     }
     const resp = await this._requestHandler(
       'batch',
-      new FlowLogsBatch(flowLogsSerializedBatch, recordCount),
+      new FlowLogsBatch(flowLogsBatchSerialized, accountId, recordCount)
     )
     return resp.body
   }

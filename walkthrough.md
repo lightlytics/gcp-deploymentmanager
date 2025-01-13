@@ -19,18 +19,36 @@ Every command requires a project ID. Set a default project ID so you do not need
 gcloud config set project <walkthrough-project-id/> 
 ```
 
-Enable the needed APIs, which you will need for the integration.
+Enable the deployment manager API
 
 <walkthrough-enable-apis apis="deploymentmanager.googleapis.com"></walkthrough-enable-apis>
 
+
 Because you will be creating IAM resources, you need to have the necessary permissions for the service account being used by Deployment Manager. For that we will create a custom role and assign it to the default GCP API service account in the project.
+These permissions will only be used by the deployment manager to create resources in the project and will not be used by the Stream Security integration.
 
 ```sh
-gcloud iam roles create StreamsecCustomRole --project <walkthrough-project-id> --file custom-role.yaml
+gcloud iam roles create StreamsecCustomRole --project <walkthrough-project-id> --file deployment-manager-custom-role.yaml
 ```
 
 ```sh
 gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=serviceAccount:$(gcloud projects describe <walkthrough-project-id> --format='value(projectNumber)')@cloudservices.gserviceaccount.com --role=projects/<walkthrough-project-id>/roles/StreamsecCustomRole
+```
+
+## Enable Necessary APIs
+
+Enable the rest of the necessary APIs, which you will need for the integration.
+<walkthrough-enable-apis apis="cloudresourcemanager.googleapis.com"></walkthrough-enable-apis>
+<walkthrough-enable-apis apis="cloudfunctions.googleapis.com"></walkthrough-enable-apis>
+<walkthrough-enable-apis apis="pubsub.googleapis.com"></walkthrough-enable-apis>
+<walkthrough-enable-apis apis="cloudbuild.googleapis.com"></walkthrough-enable-apis>
+<walkthrough-enable-apis apis="admin.googleapis.com"></walkthrough-enable-apis>
+<walkthrough-enable-apis apis="logging.googleapis.com"></walkthrough-enable-apis>
+
+Manually create the needed service account for cloud logging if not already created.
+
+```sh
+gcloud beta services identity create --service=logging.googleapis.com --project <walkthrough-project-id>
 ```
 
 ## Create the deployment
@@ -40,6 +58,11 @@ gcloud projects add-iam-policy-binding <walkthrough-project-id> --member=service
 ```sh
 gcloud deployment-manager deployments create stream-security --template init.jinja --properties apiUrl:{{ API_URL }},apiToken:{{ API_TOKEN }}
 ```
+
+### ⚠️ Troubleshoot ⚠️
+
+* service account does not exist error: please delete the deployment and create again. (gcloud deployment-manager deployments delete stream-security)
+
 
 ## Verify the deployment
 Go back to the Stream Security console and verify that the deployment was successful.

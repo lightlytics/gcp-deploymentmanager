@@ -4,8 +4,9 @@ resources:
   properties:
     accountId: {{ env['deployment'] }}-sa
     displayName: "Stream Security Service Account"
-- type: gcp-types/iam-v1:projects.serviceAccounts.keys
-  name: service-account-key
+
+- name: service-account-key
+  type: gcp-types/iam-v1:projects.serviceAccounts.keys
   properties:
     parent: $(ref.service-account.name)
     privateKeyType: TYPE_GOOGLE_CREDENTIALS_FILE
@@ -22,6 +23,18 @@ resources:
   metadata:
     dependsOn:
       - service-account
+      - service-account-key
+
+- name: service-account-security-reviewer-role
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    resource: {{ env["project"] }}
+    role: roles/iam.securityReviewer
+    member: "serviceAccount:$(ref.service-account.email)"
+  metadata:
+    dependsOn:
+      - service-account
+      - service-account-key
 
 - name: events-topic
   type: pubsub.v1.topic
@@ -35,6 +48,20 @@ resources:
     topic: {{ env['deployment'] }}-ack-topic
     messageRetentionDuration: 259200s
 
+- name: events-sink
+  type: logging.v2.sink
+  properties:
+    sink: {{ env['deployment'] }}-events-sink
+    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-events-topic
+    filter: (logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Factivity" OR (logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Fdata_access" AND NOT protoPayload.methodName=~"(?i).list")) AND protoPayload.methodName:* AND protoPayload.authenticationInfo.principalEmail:* AND NOT resource.type="k8s_cluster"
+
+- name: ack-sink
+  type: logging.v2.sink
+  properties:
+    sink: {{ env['deployment'] }}-ack-sink
+    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-ack-topic
+    filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND protoPayload.methodName="v2.deploymentmanager.deployments.insert" AND operation.last=true AND severity="NOTICE"
+
 - name: events-publish-role
   type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
   properties:
@@ -45,6 +72,9 @@ resources:
           members:
             - "serviceAccount:cloud-logs@system.gserviceaccount.com"
             - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
+  metadata:
+    dependsOn:
+      - events-sink
 
 - name: ack-publish-role
   type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
@@ -56,35 +86,6 @@ resources:
         members:
         - "serviceAccount:cloud-logs@system.gserviceaccount.com"
         - "serviceAccount:service-{{ env['project_number'] }}@gcp-sa-logging.iam.gserviceaccount.com"
-
-- name: events-sink
-  type: logging.v2.sink
-  properties:
-    sink: {{ env['deployment'] }}-events-sink
-    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-events-topic
-    filter: logName="projects/{{ env["project"] }}/logs/cloudaudit.googleapis.com%2Factivity" AND protoPayload.methodName:* AND protoPayload.authenticationInfo.principalEmail:* AND NOT resource.type="k8s_cluster"
-
-- name: ack-sink
-  type: logging.v2.sink
-  properties:
-    sink: {{ env['deployment'] }}-ack-sink
-    destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-ack-topic
-    filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND protoPayload.methodName="v2.deploymentmanager.deployments.insert" AND operation.last=true AND severity="NOTICE"
-
-- name: events-subscription
-  type: pubsub.v1.subscription
-  properties:
-    subscription: events-subscription
-    topic: $(ref.events-topic.name)
-  metadata:
-    dependsOn:
-      - events-sink
-
-- name: ack-subscription
-  type: pubsub.v1.subscription
-  properties:
-    subscription: {{ env['deployment'] }}-ack-subscription
-    topic: $(ref.ack-topic.name)
   metadata:
     dependsOn:
       - ack-sink
@@ -94,7 +95,7 @@ resources:
   properties:
     parent: projects/{{ env["project"] }}/locations/{{ properties['region'] }}
     function: {{ env['deployment'] }}-events-function
-    runtime: nodejs20
+    runtime: nodejs22
     timeout: 5s
     entryPoint: streamsec-audit-logs-collector
     sourceArchiveUrl: gs://{{ properties['bucket'] }}/gcp-events-collection.zip
@@ -104,9 +105,10 @@ resources:
     environmentVariables:
       API_URL: {{ properties['apiUrl'] }}
       API_TOKEN: {{ properties['apiToken'] }}
+    ingressSettings: ALLOW_INTERNAL_ONLY
   metadata:
     dependsOn:
-      - events-subscription
+      - events-publish-role
 
 - name: ack-function
   type: gcp-types/cloudfunctions-v1:projects.locations.functions
@@ -123,6 +125,7 @@ resources:
       API_URL: {{ properties['apiUrl'] }}
       API_TOKEN: {{ properties['apiToken'] }}
       SERVICE_ACCOUNT_KEY: $(ref.service-account-key.privateKeyData)
+    ingressSettings: ALLOW_INTERNAL_ONLY
   metadata:
     dependsOn:
-      - ack-subscription
+      - ack-publish-role
