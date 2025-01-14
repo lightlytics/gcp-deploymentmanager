@@ -9,8 +9,6 @@ This document explains how to integrate GKE audit logs to our product
 3. Cloud Storage service agent
    permission ([as specified here](https://cloud.google.com/functions/docs/calling/storage#permissions))
 
-#### Steps to enable Flow logs:
-
 #### Steps to create a Log Router Sink:
 
 1. Go to the Logging page → [Logs Router](https://console.cloud.google.com/logs/router)
