@@ -30,7 +30,7 @@ const processGKELogFile = async (contentString) => {
   contentString.split('\n').forEach((line, index, array) => {
     if (line) {
       const log = JSON.parse(line)
-      resourceIds[`projects/${log.resource.labels.project_id}/zones/${log.resource.labels.location}/clusters/${log.resource.labels.cluster_name}`] = ''
+      resourceIds[`projects/${log.resource.labels.project_id}/locations/${log.resource.labels.location}/clusters/${log.resource.labels.cluster_name}`] = ''
       logsString += line + ','
       logCount++
     }
