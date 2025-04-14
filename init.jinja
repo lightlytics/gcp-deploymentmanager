@@ -14,11 +14,23 @@ resources:
     dependsOn:
       - service-account
 
-- name: service-account-viewer-role
+
+- name: stream-ro-role
+  type: gcp-types/iam-v1:projects.roles
+  properties:
+    parent: projects/{{ env["project"] }}
+    roleId: StreamsecRORole
+    role:
+      title: Stream Security Read-Only Role
+      description: Stream Security Read-Only Role for GCP
+      includedPermissions:
+      stage: GA
+
+- name: service-account-streamsec-ro-role
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: roles/viewer
+    role: roles/StreamsecRORole
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
