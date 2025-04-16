@@ -4053,7 +4053,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecRORole01
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole01_{{ properties['deployment'] }}
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
@@ -4064,7 +4064,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecRORole02
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole02_{{ properties['deployment'] }}
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
@@ -4075,7 +4075,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecRORole03
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole03_{{ properties['deployment'] }}
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
