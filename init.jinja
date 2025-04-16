@@ -19,9 +19,9 @@ resources:
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole01
+    roleId: StreamsecRORole01_{{ env['deployment'] }}
     role:
-      title: Stream Security Read-Only Role 01
+      title: Stream Security Read-Only Role 01 - {{ env['deployment'] }}
       description: Stream Security Read-Only Role 01 for GCP
       includedPermissions:
       - accessapproval.requests.get
@@ -669,6 +669,7 @@ resources:
       - bigquery.savedqueries.get
       - bigquery.savedqueries.list
       - bigquery.tables.getIamPolicy
+      - bigquery.tables.get
       - bigquery.tables.listEffectiveTags
       - bigquery.tables.listTagBindings
       - bigquery.tables.replicateData
@@ -1879,9 +1880,9 @@ resources:
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole02
+    roleId: StreamsecRORole02_{{ env['deployment'] }}
     role:
-      title: Stream Security Read-Only Role 02
+      title: Stream Security Read-Only Role 02 - {{ env['deployment'] }}
       description: Stream Security Read-Only Role 02 for GCP
       stage: GA
       includedPermissions:
@@ -3091,9 +3092,9 @@ resources:
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole03
+    roleId: StreamsecRORole03_{{ env['deployment'] }}
     role:
-      title: Stream Security Read-Only Role 03
+      title: Stream Security Read-Only Role 03 - {{ env['deployment'] }}
       description: Stream Security Read-Only Role 03 for GCP
       stage: GA
       includedPermissions:
@@ -4052,7 +4053,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: roles/StreamsecRORole01
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole01
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
@@ -4063,7 +4064,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: roles/StreamsecRORole02
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole02
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
@@ -4074,7 +4075,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: roles/StreamsecRORole03
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole03
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
@@ -4116,7 +4117,7 @@ resources:
   properties:
     sink: {{ env['deployment'] }}-ack-sink
     destination: pubsub.googleapis.com/projects/{{ env["project"] }}/topics/{{ env['deployment'] }}-ack-topic
-    filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND protoPayload.methodName="v2.deploymentmanager.deployments.insert" AND operation.last=true AND severity="NOTICE"
+    filter: resource.type="deployment" AND protoPayload.resourceName="projects/{{ env['project'] }}/global/deployments/{{ env['deployment'] }}" AND operation.last=true AND severity="NOTICE"
 
 - name: events-publish-role
   type: gcp-types/pubsub-v1:pubsub.projects.topics.setIamPolicy
