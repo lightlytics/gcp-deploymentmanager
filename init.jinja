@@ -15,14 +15,14 @@ resources:
       - service-account
 
 
-- name: stream-ro-role
+- name: stream-ro-role01
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole
+    roleId: StreamsecRORole01
     role:
-      title: Stream Security Read-Only Role
-      description: Stream Security Read-Only Role for GCP
+      title: Stream Security Read-Only Role 01
+      description: Stream Security Read-Only Role 01 for GCP
       includedPermissions:
       - accessapproval.requests.get
       - accessapproval.requests.list
@@ -2625,6 +2625,18 @@ resources:
       - eventarc.triggers.get
       - eventarc.triggers.getIamPolicy
       - eventarc.triggers.list
+      stage: GA
+
+- name: stream-ro-role02
+  type: gcp-types/iam-v1:projects.roles
+  properties:
+    parent: projects/{{ env["project"] }}
+    roleId: StreamsecRORole02
+    role:
+      title: Stream Security Read-Only Role 02
+      description: Stream Security Read-Only Role 02 for GCP
+      stage: GA
+      includedPermissions:
       - fcmdata.deliverydata.list
       - file.backups.get
       - file.backups.list
@@ -4533,13 +4545,24 @@ resources:
       - workstations.workstations.get
       - workstations.workstations.getIamPolicy
       - workstations.workstations.list
-      stage: GA
 
-- name: service-account-streamsec-ro-role
+
+- name: service-account-streamsec-ro01-role
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: roles/StreamsecRORole
+    role: roles/StreamsecRORole01
+    member: "serviceAccount:$(ref.service-account.email)"
+  metadata:
+    dependsOn:
+      - service-account
+      - service-account-key
+
+- name: service-account-streamsec-ro02-role
+  type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
+  properties:
+    resource: {{ env["project"] }}
+    role: roles/StreamsecRORole02
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
