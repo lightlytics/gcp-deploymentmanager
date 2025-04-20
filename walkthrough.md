@@ -61,7 +61,8 @@ gcloud deployment-manager deployments create stream-security --template init.jin
 
 ### ⚠️ Troubleshoot ⚠️
 
-* service account does not exist error: please delete the deployment and create again. (gcloud deployment-manager deployments delete stream-security)
+* service account does not exist error: please update the deployment after you see this error. (replace 'create' with 'update' in the command)
+* custom role is in deleted state: happens if you deleted the deployment and recreated it. You need to create the deployment with a different name
 
 
 ## Verify the deployment
