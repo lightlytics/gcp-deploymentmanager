@@ -19,9 +19,9 @@ resources:
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole01_{{ env['deployment'] }}
+    roleId: StreamsecRORole01_{{ env['deployment'] | replace("-","") }}
     role:
-      title: Stream Security Read-Only Role 01 - {{ env['deployment'] }}
+      title: Stream Security Read-Only Role 01 - {{ env['deployment'] | replace("-","") }}
       description: Stream Security Read-Only Role 01 for GCP
       includedPermissions:
       - accessapproval.requests.get
@@ -1880,9 +1880,9 @@ resources:
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole02_{{ env['deployment'] }}
+    roleId: StreamsecRORole02_{{ env['deployment'] | replace("-","") }}
     role:
-      title: Stream Security Read-Only Role 02 - {{ env['deployment'] }}
+      title: Stream Security Read-Only Role 02 - {{ env['deployment'] | replace("-","") }}
       description: Stream Security Read-Only Role 02 for GCP
       stage: GA
       includedPermissions:
@@ -3092,9 +3092,9 @@ resources:
   type: gcp-types/iam-v1:projects.roles
   properties:
     parent: projects/{{ env["project"] }}
-    roleId: StreamsecRORole03_{{ env['deployment'] }}
+    roleId: StreamsecRORole03_{{ env['deployment'] | replace("-","") }}
     role:
-      title: Stream Security Read-Only Role 03 - {{ env['deployment'] }}
+      title: Stream Security Read-Only Role 03 - {{ env['deployment'] | replace("-","") }}
       description: Stream Security Read-Only Role 03 for GCP
       stage: GA
       includedPermissions:
@@ -4053,7 +4053,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecRORole01_{{ env['deployment'] }}
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole01_{{ env['deployment'] | replace("-","") }}
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
@@ -4064,7 +4064,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecRORole02_{{ env['deployment'] }}
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole02_{{ env['deployment'] | replace("-","") }}
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
@@ -4075,7 +4075,7 @@ resources:
   type: gcp-types/cloudresourcemanager-v1:virtual.projects.iamMemberBinding
   properties:
     resource: {{ env["project"] }}
-    role: projects/{{ env["project"] }}/roles/StreamsecRORole03_{{ env['deployment'] }}
+    role: projects/{{ env["project"] }}/roles/StreamsecRORole03_{{ env['deployment'] | replace("-","") }}
     member: "serviceAccount:$(ref.service-account.email)"
   metadata:
     dependsOn:
