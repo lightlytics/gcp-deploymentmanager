@@ -25,6 +25,7 @@ jobs:
           (cd ./code/events && zip -r ../../gcp-events-collection.zip . -x "local/*" "mocks/*" "config/local.js" "*.yaml" "*.zip")
           (cd ./code/flowlogs && zip -r ../../gcp-flow-logs-collection.zip . -x "local/*" "mocks/*" "config/local.js" "*.yaml" "*.zip")
           (cd ./code/gke-logs && zip -r ../../gcp-gke-logs-collection.zip . -x "local/*" "mocks/*" "config/local.js" "*.yaml" "*.zip")
+          (cd ./code/automatic-integration && zip -r ../../gcp-automatic-integration.zip .)
 
       - name: Upload to GCP Bucket
         run: |
@@ -32,3 +33,4 @@ jobs:
           gsutil cp gcp-events-collection.zip gs://streamsec-public-artifacts
           gsutil cp gcp-flow-logs-collection.zip gs://streamsec-public-artifacts
           gsutil cp gcp-gke-logs-collection.zip gs://streamsec-public-artifacts
+          gsutil cp gcp-automatic-integration.zip gs://streamsec-public-artifacts

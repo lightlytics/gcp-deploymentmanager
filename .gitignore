@@ -1,3 +1,7 @@
 .idea
 node_modules
 *.zip
+__pycache__/
+requirements-dev.txt
+test_event.json
+python-pubsub/
