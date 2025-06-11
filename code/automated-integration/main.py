@@ -21,15 +21,12 @@ def handle_project_event(event, context):
         logger.info(f"Received event: {json.dumps(event)}")
         
         # Get the deployment details from environment variables
-        deployment_id = os.environ.get('INFRA_MANAGER_DEPLOYMENT_ID')
-        deployment_region = os.environ.get('INFRA_MANAGER_DEPLOYMENT_REGION')
-        project_id = os.environ.get('PROJECT_ID')
+        deployment_name = os.environ.get('INFRA_MANAGER_DEPLOYMENT_NAME')
         
-        logger.info(f"Deployment ID: {deployment_id}")
-        logger.info(f"Deployment Region: {deployment_region}")
+        logger.info(f"Deployment Name: {deployment_name}")
         
-        if not deployment_id or not deployment_region or not project_id:
-            error_msg = "INFRA_MANAGER_DEPLOYMENT_ID, INFRA_MANAGER_DEPLOYMENT_REGION, or PROJECT_ID environment variables are not set"
+        if not deployment_name:
+            error_msg = "INFRA_MANAGER_DEPLOYMENT_NAME or PROJECT_ID environment variables are not set"
             logger.error(error_msg)
             raise ValueError(error_msg)
 
@@ -38,7 +35,6 @@ def handle_project_event(event, context):
         client = ConfigClient()
 
         # Get the current deployment
-        deployment_name = f"projects/{project_id}/locations/{deployment_region}/deployments/{deployment_id}"
         logger.info(f"Getting deployment: {deployment_name}")
         
         deployment = client.get_deployment(
@@ -60,7 +56,7 @@ def handle_project_event(event, context):
             )
         )
 
-        logger.info(f"Successfully triggered update for deployment {deployment_id}")
+        logger.info(f"Successfully triggered update for deployment {deployment_name}")
 
     except Exception as e:
         logger.error(f"Error updating deployment: {str(e)}", exc_info=True)
