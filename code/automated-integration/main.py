@@ -26,7 +26,7 @@ def handle_project_event(event, context):
         logger.info(f"Deployment Name: {deployment_name}")
         
         if not deployment_name:
-            error_msg = "INFRA_MANAGER_DEPLOYMENT_NAME or PROJECT_ID environment variables are not set"
+            error_msg = "INFRA_MANAGER_DEPLOYMENT_NAME environment variable is not set"
             logger.error(error_msg)
             raise ValueError(error_msg)
 
