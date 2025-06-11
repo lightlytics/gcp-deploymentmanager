@@ -4,12 +4,14 @@ import os
 import requests
 import logging
 from google.cloud.config import Deployment, ConfigClient
-
+from cloudevents.http import CloudEvent
+import functions_framework
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def handle_project_event(event, context):
+@functions_framework.cloud_event
+def handle_project_event(cloud_event: CloudEvent) -> None:
     """
     Cloud Run function that handles GCP project creation/deletion events and triggers infrastructure manager deployment updates.
     Args:
@@ -18,7 +20,7 @@ def handle_project_event(event, context):
     """
     try:
         logger.info("Starting project event handler")
-        logger.info(f"Received event: {json.dumps(event)}")
+        logger.info(f"Received event: {cloud_event}")
         
         # Get the deployment details from environment variables
         deployment_name = os.environ.get('INFRA_MANAGER_DEPLOYMENT_NAME')
