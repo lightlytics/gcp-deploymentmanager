@@ -1,6 +1,6 @@
 const axios = require('axios')
 const config = require('config')
-const {FlowLogsBatch} = require('./models/flowLogs')
+const { FlowLogsBatch } = require('./models/flowLogs')
 const { getSecretValue } = require('./secretManager')
 
 function formatUrl(url) {
@@ -36,12 +36,11 @@ class RestClient {
       timeout: 5 * 1000,
       headers: {
         'Content-Type': 'application/json',
-        [this.tokenHeader]: config.get('apiToken'),
         Accept: 'application/json;q=0.5, text/plain;q=0.1',
       },
     })
 
-    // If SECRET_NAME is specified, update the token with value from Secret Manager
+    // Set authentication token - from Secret Manager or config
     if (process.env.SECRET_NAME) {
       console.log(`Getting API token from Secret Manager: ${process.env.SECRET_NAME}`)
       this.tokenLoadedPromise = getSecretValue(process.env.SECRET_NAME)
@@ -51,8 +50,11 @@ class RestClient {
         .catch(err => {
           console.error('Failed to get API token from Secret Manager:', err)
         })
-    } else {
+    } else if (config.has('apiToken')) {
+      this.client.defaults.headers.common[this.tokenHeader] = config.get('apiToken')
       this.tokenLoadedPromise = Promise.resolve()
+    } else {
+      throw new Error('No authentication token available, specify SECRET_NAME or apiToken in env')
     }
   }
 
@@ -80,7 +82,7 @@ class RestClient {
     }
     const resp = await this._requestHandler(
       'batch',
-      new FlowLogsBatch(flowLogsBatchSerialized, accountId, recordCount)
+      new FlowLogsBatch(flowLogsBatchSerialized, accountId, recordCount),
     )
     return resp.body
   }
@@ -106,7 +108,7 @@ class RestClient {
       )
       throw e
     }
-    return {body: resp.data, statusCode: resp.status}
+    return { body: resp.data, statusCode: resp.status }
   }
 }
 

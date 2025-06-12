@@ -8,8 +8,8 @@ functions.cloudEvent('streamsec-audit-logs-collector', async (cloudEvent) => {
   try {
     const httpClient = new RestClient({ apiPath: 'collection' })
     const response = await httpClient.postAuditEvent(data)
-    console.log(`Sent log and got response ${response?.data} (${response?.status})`)
+    console.log(`Sent log and got response`, response)
   } catch (error) {
-    console.error(`Error sending log data (${error?.code || error?.response?.statusCode})`)
+    console.error(`Error sending log data:`, error)
   }
 })
