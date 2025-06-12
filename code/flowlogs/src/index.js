@@ -1,12 +1,12 @@
-const {Storage} = require('@google-cloud/storage')
-const {flowLogsBatchProto, FlowLogsDeviceTypeEnum} = require('./models/protobuf/proto')
-const {gzipSync} = require('node:zlib')
+const { Storage } = require('@google-cloud/storage')
+const { flowLogsBatchProto, FlowLogsDeviceTypeEnum } = require('./models/protobuf/proto')
+const { gzipSync } = require('node:zlib')
 const storage = new Storage()
-const {RestClient} = require('./restClient')
-const {parseFlowlog} = require('./flowlogs/flowlogParser')
+const { RestClient } = require('./restClient')
+const { parseFlowlog } = require('./flowlogs/flowlogParser')
 
 const processVPCFlowLogs = async (contentString) => {
-  const httpClient = new RestClient({apiPath: 'collection/flowlogs'})
+  const httpClient = new RestClient({ apiPath: 'collection/flowlogs' })
   const logs = []
   contentString.split('\n').forEach(line => {
     if (line) {
@@ -53,11 +53,8 @@ const processVPCFlowLogs = async (contentString) => {
       `Sent ${flowsBatch.logs.length} flow records and got: `,
       response,
     )
-  } catch (err) {
-    console.error(`Error sending log data: ${err.message || err}`)
-    if (err.response) {
-      console.error(`Response status: ${err.response.status}, data: ${JSON.stringify(err.response.data)}`)
-    }
+  } catch (error) {
+    console.error(`Error sending log data:`, error)
   }
 }
 
