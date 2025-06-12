@@ -12,8 +12,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google-cloud/secret-manager": "^6.0.1",
     "@google-cloud/storage": "^7.12.1",
-    "axios": "^1.7.7",
+    "axios": "1.8.2",
     "config": "^3.3.12"
   }
 }
