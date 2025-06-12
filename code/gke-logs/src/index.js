@@ -55,8 +55,8 @@ const processGKELogFile = async (contentString) => {
       `Sent ${logCount} GKE records and got: `,
       response,
     )
-  } catch (err) {
-    console.error(err)
+  } catch (error) {
+    console.error(`Error sending log data:`, error)
   }
 }
 
