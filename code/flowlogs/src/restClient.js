@@ -1,6 +1,7 @@
 const axios = require('axios')
 const config = require('config')
 const {FlowLogsBatch} = require('./models/flowLogs')
+const { getSecretValue } = require('./secretManager')
 
 function formatUrl(url) {
   // Ensure the URL starts with "http://" or "https://"
@@ -39,6 +40,20 @@ class RestClient {
         Accept: 'application/json;q=0.5, text/plain;q=0.1',
       },
     })
+
+    // If SECRET_NAME is specified, update the token with value from Secret Manager
+    if (process.env.SECRET_NAME) {
+      console.log(`Getting API token from Secret Manager: ${process.env.SECRET_NAME}`)
+      this.tokenLoadedPromise = getSecretValue(process.env.SECRET_NAME)
+        .then(token => {
+          this.client.defaults.headers.common[this.tokenHeader] = token
+        })
+        .catch(err => {
+          console.error('Failed to get API token from Secret Manager:', err)
+        })
+    } else {
+      this.tokenLoadedPromise = Promise.resolve()
+    }
   }
 
   beforeRetryHookHandler(options, error, retryCount) {
@@ -77,6 +92,8 @@ class RestClient {
    * @returns {Object}
    */
   async _requestHandler(path, data) {
+    await this.tokenLoadedPromise
+
     let resp
     try {
       console.log(`POST to ${this.baseApiUrl}${path}`)
