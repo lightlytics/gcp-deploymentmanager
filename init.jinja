@@ -4163,7 +4163,7 @@ resources:
   properties:
     parent: projects/{{ env["project"] }}/locations/{{ properties['region'] }}
     function: {{ env['deployment'] }}-events-function
-    runtime: nodejs22
+    runtime: nodejs20
     timeout: 5s
     entryPoint: streamsec-audit-logs-collector
     sourceArchiveUrl: gs://{{ properties['bucket'] }}/gcp-events-collection.zip
