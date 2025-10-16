@@ -7,8 +7,6 @@ const StorageGKELogsCollection = async (event, context) => {
   const bucketName = event.bucket
   const fileName = event.name
 
-  console.log(`Processing file: ${fileName} from bucket: ${bucketName}`)
-
   try {
     const bucket = storage.bucket(bucketName)
     const file = bucket.file(fileName)
@@ -38,7 +36,6 @@ const processGKELogFile = async (contentString) => {
   logsString = logsString.slice(0, -1) + ']'
 
   if (logCount === 0) {
-    console.log('No logs to process')
     return
   }
 
@@ -50,10 +47,6 @@ const processGKELogFile = async (contentString) => {
       batchCompressed,
       Object.keys(resourceIds),
       logCount,
-    )
-    console.log(
-      `Sent ${logCount} GKE records and got: `,
-      response,
     )
   } catch (error) {
     console.error(`Error sending log data:`, error)

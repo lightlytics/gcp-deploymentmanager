@@ -20,7 +20,6 @@ const processVPCFlowLogs = async (contentString) => {
   })
 
   if (!logs) {
-    console.info('No logs found in the file')
     return
   }
 
@@ -49,10 +48,6 @@ const processVPCFlowLogs = async (contentString) => {
       accountId,
       flowsBatch.logs.length,
     )
-    console.log(
-      `Sent ${flowsBatch.logs.length} flow records and got: `,
-      response,
-    )
   } catch (error) {
     console.error(`Error sending log data:`, error)
   }
@@ -61,8 +56,6 @@ const processVPCFlowLogs = async (contentString) => {
 const StorageFlowlogsCollection = async (event, context) => {
   const bucketName = event.bucket
   const fileName = event.name
-
-  console.log(`Processing file: ${fileName} from bucket: ${bucketName}`)
 
   try {
     const bucket = storage.bucket(bucketName)
