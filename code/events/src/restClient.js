@@ -25,7 +25,6 @@ class RestClient {
       this.baseApiUrl = new URL(
         `${formatUrl(this.apiUrl)}/api/${this.apiVersion}/${options.apiPath}/`,
       )
-      console.log(`Current API url: ${this.baseApiUrl}`)
     } catch (e) {
       throw new Error(`wrong API url - error: ${e}`)
     }
@@ -41,7 +40,6 @@ class RestClient {
 
     // Set authentication token - from Secret Manager or config
     if (process.env.SECRET_NAME) {
-      console.log(`Getting API token from Secret Manager: ${process.env.SECRET_NAME}`)
       this.tokenLoadedPromise = getSecretValue(process.env.SECRET_NAME)
         .then(token => {
           this.client.defaults.headers.common[this.tokenHeader] = token
@@ -78,10 +76,9 @@ class RestClient {
 
     let resp
     try {
-      console.log(`POST to ${this.baseApiUrl}${path}`)
       resp = await this.client.post(path, data)
     } catch (e) {
-      console.log(
+      console.error(
         `error while sending to Stream Security API - error message: ${e}, code: ${
           e?.code || e?.response?.statusCode
         }`,
