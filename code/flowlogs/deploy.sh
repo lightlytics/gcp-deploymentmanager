@@ -10,7 +10,14 @@ RUNTIME=nodejs22
 
 # Environment Variables
 API_URL=https://YOUR_ENV.streamsec.io
-API_TOKEN=YOUR_COLLECTION_TOKEN
+SECRET_NAME=YOUR_SECRET_NAME # Name of the secret in Secret Manager containing the API token
+SECRET_LOCATION= # Leave empty for global secrets, or set to region (e.g., us-central1) for regional secrets
+
+if [ -z "$SECRET_LOCATION" ]; then
+  SECRET_PATH="projects/$PROJECT_ID/secrets/$SECRET_NAME/versions/latest"
+else
+  SECRET_PATH="projects/$PROJECT_ID/locations/$SECRET_LOCATION/secrets/$SECRET_NAME/versions/latest"
+fi
 
 # Deploy the function
 gcloud functions deploy StreamSecFlowLogsCollection \
@@ -20,6 +27,6 @@ gcloud functions deploy StreamSecFlowLogsCollection \
   --trigger-event google.storage.object.finalize \
   --trigger-location=$TRIGGER_LOCATION \
   --entry-point StorageFlowlogsCollection \
-  --source $SOURCE_DIR \
+  --source $SOURCE_URL \
   --project $PROJECT_ID \
-  --set-env-vars API_URL=$API_URL,API_TOKEN=$API_TOKEN
+  --set-env-vars API_URL=$API_URL,SECRET_NAME=$SECRET_PATH
