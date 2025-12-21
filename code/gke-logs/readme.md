@@ -8,6 +8,7 @@ This document explains how to integrate GKE audit logs to our product
 2. Configured **Log Router** Sink to Cloud Storage Bucket
 3. Cloud Storage service agent
    permission ([as specified here](https://cloud.google.com/functions/docs/calling/storage#permissions))
+4. API token stored in [Secret Manager](https://console.cloud.google.com/security/secret-manager)
 
 #### Steps to create a Log Router Sink:
 
@@ -49,7 +50,7 @@ This document explains how to integrate GKE audit logs to our product
 1. Go to [Secret Manager](https://console.cloud.google.com/security/secret-manager)
 2. Click "Create Secret"
 3. Fill in the details:
-   - Name: Choose a name (e.g., `streamsec-api-token`)
+   - Name: Choose a name (e.g., `streamsec-gke-logs-token`)
    - Secret value: Paste your Stream Security collection token
    - For regional secrets: Select a region under "Replication policy" → "User managed" (optional)
 4. Click "Create"
