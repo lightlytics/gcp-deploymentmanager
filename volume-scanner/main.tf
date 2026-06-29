@@ -122,6 +122,19 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           name  = "COLLECTION_TOKEN"
           value = var.stream_collection_token
         }
+        # For the orchestrator's first-run "deployed" acknowledgement.
+        env {
+          name  = "STREAM_API_URL"
+          value = var.stream_api_url
+        }
+        env {
+          name  = "STREAM_CUSTOMER_ID"
+          value = var.stream_customer_id
+        }
+        env {
+          name  = "STREAM_ACK_TOKEN"
+          value = var.stream_ack_token
+        }
       }
     }
   }
