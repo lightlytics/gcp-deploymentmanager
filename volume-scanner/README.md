@@ -28,6 +28,32 @@ as; it needs permission to create the resources above (e.g. roles/editor +
 roles/resourcemanager.projectIamAdmin, or a scoped equivalent). See the Stream
 docs for the recommended setup.
 
+### One-time: create the runner service account
+
+Run once per project (the Stream console's Deploy dialog also shows this). It
+needs project IAM-admin, since the blueprint creates a custom role + IAM
+binding:
+
+```bash
+PROJECT=<PROJECT_ID>
+SA=infra-manager@$PROJECT.iam.gserviceaccount.com
+PROJNUM=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
+
+gcloud iam service-accounts create infra-manager --display-name="Infra Manager runner" 2>/dev/null || true
+
+for ROLE in roles/editor roles/iam.roleAdmin roles/resourcemanager.projectIamAdmin; do
+  gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="$ROLE" --condition=None -q
+done
+
+# let the Infrastructure Manager service agent use the runner SA
+gcloud iam service-accounts add-iam-policy-binding $SA \
+  --member="serviceAccount:service-$PROJNUM@gcp-sa-config.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator" -q
+```
+
+Then pass `--service-account=projects/$PROJECT/serviceAccounts/$SA` to the
+`apply` command above.
+
 ## Inputs
 
 See `variables.tf`.
