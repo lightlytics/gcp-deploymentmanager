@@ -41,9 +41,11 @@ PROJNUM=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
 
 gcloud iam service-accounts create infra-manager --display-name="Infra Manager runner" 2>/dev/null || true
 
-for ROLE in roles/editor roles/iam.roleAdmin roles/resourcemanager.projectIamAdmin; do
+for ROLE in roles/editor roles/iam.roleAdmin roles/resourcemanager.projectIamAdmin roles/config.agent; do
   gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="$ROLE" --condition=None -q
 done
+# roles/config.agent is required — Infra Manager's Terraform state backend calls
+# config.deployments.getState as this SA; without it, `tf init` fails.
 
 # let the Infrastructure Manager service agent use the runner SA
 gcloud iam service-accounts add-iam-policy-binding $SA \
