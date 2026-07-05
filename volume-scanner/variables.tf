@@ -19,8 +19,12 @@ variable "region" {
 
 variable "scanner_image" {
   type        = string
-  description = "Public scanner container image (orchestrator + worker)."
-  default     = "public.ecr.aws/stream-security/volume-scanner:latest"
+  # GCP Cloud Run only pulls from Artifact Registry / gcr.io / docker.io, NOT
+  # public.ecr.aws — so the GCP image is hosted in a Stream-owned public AR
+  # (mirrored there by the cloud-volume-scanner-build release pipeline). The
+  # console always passes an explicit value; this default is just a fallback.
+  description = "Public scanner container image (orchestrator + worker), in a GCP-pullable registry."
+  default     = "us-docker.pkg.dev/stream-secops-project/streamsec-public/volume-scanner:latest"
 }
 
 variable "stream_api_url" {
