@@ -64,6 +64,11 @@ resource "google_project_iam_custom_role" "scanner" {
     "compute.snapshots.get",
     "compute.snapshots.useReadOnly",
     "compute.snapshots.delete",
+    # Use the scanner's own subnet (below) for the Batch worker VM. Granted via
+    # this project-level role rather than a subnet-scoped IAM binding, so the
+    # runner SA only needs its documented roles (editor + projectIamAdmin) and
+    # not compute.networkAdmin/subnetworks.setIamPolicy.
+    "compute.subnetworks.use",
     "batch.jobs.create",
     "batch.jobs.get",
     "batch.jobs.delete",
@@ -115,16 +120,6 @@ resource "google_compute_router_nat" "scanner" {
   region                             = var.region
   nat_ip_allocate_option             = "AUTO_ONLY"
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
-}
-
-# Batch runs the worker VM (as the scanner SA) in the subnet above; the SA needs
-# Network User on that subnet to use it.
-resource "google_compute_subnetwork_iam_member" "scanner_network_user" {
-  project    = var.project_id
-  region     = var.region
-  subnetwork = google_compute_subnetwork.scanner.name
-  role       = "roles/compute.networkUser"
-  member     = "serviceAccount:${google_service_account.scanner.email}"
 }
 
 # Orchestrator Cloud Run Job. Workers are created at runtime as Batch jobs, so
