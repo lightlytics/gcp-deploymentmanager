@@ -78,6 +78,55 @@ resource "google_project_iam_member" "scanner" {
   member  = "serviceAccount:${google_service_account.scanner.email}"
 }
 
+# Dedicated, isolated network for the ephemeral scan workers. They run here with
+# NO external IP and reach the Batch control plane, Compute API, and the scanner
+# image (Artifact Registry) via Cloud NAT. This makes egress part of the
+# integration: a locked-down project (external IPs blocked by org policy, no
+# pre-existing Cloud NAT) works out of the box, and nothing touches the
+# customer's own VPCs. Without it, Batch VMs fail with "no VM has agent
+# reporting correctly" before the container ever starts.
+resource "google_compute_network" "scanner" {
+  project                 = var.project_id
+  name                    = "streamsec-scanner-vpc"
+  auto_create_subnetworks = false
+  depends_on              = [google_project_service.apis]
+}
+
+resource "google_compute_subnetwork" "scanner" {
+  project                  = var.project_id
+  name                     = "streamsec-scanner-subnet"
+  region                   = var.region
+  network                  = google_compute_network.scanner.id
+  ip_cidr_range            = "10.61.0.0/24"
+  private_ip_google_access = true
+}
+
+resource "google_compute_router" "scanner" {
+  project = var.project_id
+  name    = "streamsec-scanner-router"
+  region  = var.region
+  network = google_compute_network.scanner.id
+}
+
+resource "google_compute_router_nat" "scanner" {
+  project                            = var.project_id
+  name                               = "streamsec-scanner-nat"
+  router                             = google_compute_router.scanner.name
+  region                             = var.region
+  nat_ip_allocate_option             = "AUTO_ONLY"
+  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
+}
+
+# Batch runs the worker VM (as the scanner SA) in the subnet above; the SA needs
+# Network User on that subnet to use it.
+resource "google_compute_subnetwork_iam_member" "scanner_network_user" {
+  project    = var.project_id
+  region     = var.region
+  subnetwork = google_compute_subnetwork.scanner.name
+  role       = "roles/compute.networkUser"
+  member     = "serviceAccount:${google_service_account.scanner.email}"
+}
+
 # Orchestrator Cloud Run Job. Workers are created at runtime as Batch jobs, so
 # there is no standing worker resource to declare here.
 resource "google_cloud_run_v2_job" "orchestrator" {
@@ -113,6 +162,13 @@ resource "google_cloud_run_v2_job" "orchestrator" {
         env {
           name  = "COLLECTOR_GCP_WORKER_SA"
           value = google_service_account.scanner.email
+        }
+        # Subnet (with Cloud NAT, above) the Batch worker runs in — no external
+        # IP; egress via NAT. Makes locked-down projects work without customer
+        # networking changes.
+        env {
+          name  = "COLLECTOR_GCP_WORKER_SUBNETWORK"
+          value = google_compute_subnetwork.scanner.self_link
         }
         env {
           name  = "STREAM_SCAN_URL"
