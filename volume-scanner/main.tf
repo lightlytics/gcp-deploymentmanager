@@ -162,8 +162,10 @@ resource "google_cloud_run_v2_job" "orchestrator" {
         # IP; egress via NAT. Makes locked-down projects work without customer
         # networking changes.
         env {
-          name  = "COLLECTOR_GCP_WORKER_SUBNETWORK"
-          value = google_compute_subnetwork.scanner.self_link
+          name = "COLLECTOR_GCP_WORKER_SUBNETWORK"
+          # Relative form (projects/../regions/../subnetworks/..) — GCP Batch
+          # rejects the full https self_link on NetworkInterface.subnetwork.
+          value = google_compute_subnetwork.scanner.id
         }
         env {
           name  = "STREAM_SCAN_URL"
