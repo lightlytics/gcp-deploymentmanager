@@ -161,10 +161,15 @@ resource "google_cloud_run_v2_job" "orchestrator" {
         # Subnet (with Cloud NAT, above) the Batch worker runs in — no external
         # IP; egress via NAT. Makes locked-down projects work without customer
         # networking changes.
+        # Batch requires BOTH network and subnetwork when the worker has no
+        # external IP. Pass the relative form (projects/..) — Batch rejects the
+        # full https self_link.
         env {
-          name = "COLLECTOR_GCP_WORKER_SUBNETWORK"
-          # Relative form (projects/../regions/../subnetworks/..) — GCP Batch
-          # rejects the full https self_link on NetworkInterface.subnetwork.
+          name  = "COLLECTOR_GCP_WORKER_NETWORK"
+          value = google_compute_network.scanner.id
+        }
+        env {
+          name  = "COLLECTOR_GCP_WORKER_SUBNETWORK"
           value = google_compute_subnetwork.scanner.id
         }
         env {
