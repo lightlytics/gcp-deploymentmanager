@@ -67,6 +67,9 @@ resource "google_project_iam_custom_role" "scanner" {
     # resource.
     "compute.disks.createSnapshot",
     "compute.snapshots.create",
+    # The snapshot is created with a Purpose label (so the cleanup GC can find
+    # its own orphans) — labeling on create requires compute.snapshots.setLabels.
+    "compute.snapshots.setLabels",
     "compute.snapshots.get",
     "compute.snapshots.useReadOnly",
     "compute.snapshots.delete",
