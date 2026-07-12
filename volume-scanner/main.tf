@@ -83,6 +83,16 @@ resource "google_project_iam_member" "scanner" {
   member  = "serviceAccount:${google_service_account.scanner.email}"
 }
 
+# The Batch agent on each worker VM runs as the scanner SA and reports task state
+# to the Batch control plane; that needs roles/batch.agentReporter. Without it
+# the agent starts but can't report, and Batch fails the job with "no VM has
+# agent reporting correctly" (misleadingly looks like an egress problem).
+resource "google_project_iam_member" "scanner_agent_reporter" {
+  project = var.project_id
+  role    = "roles/batch.agentReporter"
+  member  = "serviceAccount:${google_service_account.scanner.email}"
+}
+
 # Dedicated, isolated network for the ephemeral scan workers. They run here with
 # NO external IP and reach the Batch control plane, Compute API, and the scanner
 # image (Artifact Registry) via Cloud NAT. This makes egress part of the
