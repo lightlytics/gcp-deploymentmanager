@@ -182,15 +182,27 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           name  = "COLLECTOR_GCP_WORKER_SUBNETWORK"
           value = google_compute_subnetwork.scanner.id
         }
+        # Stream scan ingest — the collector config reads these COLLECTOR_STREAM_*
+        # names (LoadFromEnv); the worker inherits them via the launcher so it can
+        # upload SBOMs + heartbeat.
         env {
-          name  = "STREAM_SCAN_URL"
+          name  = "COLLECTOR_STREAM_SCAN_URL"
           value = "${var.stream_api_url}/openapi/vulnerabilities/stream_scan/raw"
         }
         env {
-          name  = "COLLECTION_TOKEN"
+          name  = "COLLECTOR_STREAM_SCAN_TOKEN"
           value = var.stream_collection_token
         }
-        # For the orchestrator's first-run "deployed" acknowledgement.
+        env {
+          name  = "COLLECTOR_STREAM_SCAN_WORKSPACE"
+          value = var.stream_customer_id
+        }
+        env {
+          name  = "COLLECTOR_STREAM_API_URL"
+          value = var.stream_api_url
+        }
+        # For the orchestrator's first-run "deployed" acknowledgement (read
+        # directly from env by ackGCPDeployedBestEffort, not via config).
         env {
           name  = "STREAM_API_URL"
           value = var.stream_api_url
