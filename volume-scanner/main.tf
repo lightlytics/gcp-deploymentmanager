@@ -60,6 +60,12 @@ resource "google_project_iam_custom_role" "scanner" {
     "compute.disks.get",
     "compute.disks.use",
     "compute.disks.delete",
+    # Snapshotting a disk is authorized by compute.disks.createSnapshot ON THE
+    # SOURCE DISK — not compute.snapshots.create (which alone yields
+    # PERMISSION_DENIED on disks.createSnapshot). Both are required: the former
+    # to read-snapshot the source boot disk, the latter to create the snapshot
+    # resource.
+    "compute.disks.createSnapshot",
     "compute.snapshots.create",
     "compute.snapshots.get",
     "compute.snapshots.useReadOnly",
