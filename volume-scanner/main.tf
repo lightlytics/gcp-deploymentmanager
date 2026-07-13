@@ -59,6 +59,10 @@ resource "google_project_iam_custom_role" "scanner" {
     "compute.disks.create",
     "compute.disks.get",
     "compute.disks.use",
+    # The scratch disk is attached to the worker in READ_ONLY mode (safer — the
+    # scanner never writes to it), which GCP authorizes via
+    # compute.disks.useReadOnly, not compute.disks.use.
+    "compute.disks.useReadOnly",
     "compute.disks.delete",
     # Snapshotting a disk is authorized by compute.disks.createSnapshot ON THE
     # SOURCE DISK — not compute.snapshots.create (which alone yields
