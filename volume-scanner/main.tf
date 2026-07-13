@@ -73,6 +73,16 @@ resource "google_project_iam_custom_role" "scanner" {
     "compute.snapshots.get",
     "compute.snapshots.useReadOnly",
     "compute.snapshots.delete",
+    # Every snapshot/disk/attach call returns an async operation the worker
+    # must poll to completion. Polling needs the *Operations.get permission for
+    # the operation's scope (zonal for disk/attach/createSnapshot, global for
+    # snapshot delete). Without these the create/attach calls succeed on the
+    # server but the client's wait is denied — the scan dies right after
+    # createSnapshot and never creates/attaches the disk (the denial is a read,
+    # so it doesn't even appear in the admin-activity audit log).
+    "compute.zoneOperations.get",
+    "compute.globalOperations.get",
+    "compute.regionOperations.get",
     # Use the scanner's own subnet (below) for the Batch worker VM. Granted via
     # this project-level role rather than a subnet-scoped IAM binding, so the
     # runner SA only needs its documented roles (editor + projectIamAdmin) and
