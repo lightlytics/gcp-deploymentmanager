@@ -23,6 +23,16 @@ gcloud infra-manager deployments apply \
   --input-values=project_id=<PROJECT_ID>,region=<REGION>,scanner_image=<IMAGE>,stream_api_url=<API_URL>,stream_customer_id=<CUSTOMER_ID>,stream_ack_token=<ACK_TOKEN>,stream_collection_token=<COLLECTION_TOKEN>
 ```
 
+**Optional scan-feature toggles** (DEV-21073) — append to `--input-values` to
+choose what the scanner runs; omit to use the defaults. They become the
+scanner's `COLLECTOR_SCAN_*` env:
+
+| input | default | env |
+|---|---|---|
+| `scan_language_packages` | `true` (CVEs) | `COLLECTOR_SCAN_LANGUAGE_PACKAGES` |
+| `scan_secrets` | `false` | `COLLECTOR_SCAN_SECRETS` |
+| `scan_ai_workloads` | `false` | `COLLECTOR_SCAN_AI_WORKLOADS` |
+
 `<INFRA_MANAGER_SA>` is a service account Infrastructure Manager runs Terraform
 as; it needs permission to create the resources above (e.g. roles/editor +
 roles/resourcemanager.projectIamAdmin, or a scoped equivalent). See the Stream
