@@ -205,6 +205,22 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           name  = "COLLECTOR_GCP_WORKER_SUBNETWORK"
           value = google_compute_subnetwork.scanner.id
         }
+        # Per-integration scan-feature toggles (DEV-21073). Set on the
+        # orchestrator; the Batch worker inherits every COLLECTOR_* var via the
+        # launcher, so these reach the process that actually scans. lower() keeps
+        # the value canonical ("true"/"false") for the collector's env parsing.
+        env {
+          name  = "COLLECTOR_SCAN_LANGUAGE_PACKAGES"
+          value = lower(var.scan_language_packages)
+        }
+        env {
+          name  = "COLLECTOR_SCAN_SECRETS"
+          value = lower(var.scan_secrets)
+        }
+        env {
+          name  = "COLLECTOR_SCAN_AI_WORKLOADS"
+          value = lower(var.scan_ai_workloads)
+        }
         # Stream scan ingest — the collector config reads these COLLECTOR_STREAM_*
         # names (LoadFromEnv); the worker inherits them via the launcher so it can
         # upload SBOMs + heartbeat.

@@ -48,3 +48,39 @@ variable "stream_collection_token" {
   description = "Per-customer collection token (authenticates scan reports)."
   sensitive   = true
 }
+
+# Per-integration scan-feature toggles (DEV-21073). The Stream console passes
+# these from the scanner deploy dialog as `--input-values scan_*=<true|false>`
+# (lowercase strings, like the other inputs); they become the orchestrator's
+# COLLECTOR_SCAN_* env, which the Batch worker inherits (childlauncher forwards
+# every COLLECTOR_* var). Defaults match the console + AWS/Azure templates:
+# CVEs on, Secrets and AI Workloads opt-in.
+variable "scan_language_packages" {
+  type        = string
+  description = "Scan OS/language packages for CVEs (COLLECTOR_SCAN_LANGUAGE_PACKAGES). \"true\" or \"false\" (case-insensitive)."
+  default     = "true"
+  validation {
+    condition     = contains(["true", "false"], lower(var.scan_language_packages))
+    error_message = "scan_language_packages must be \"true\" or \"false\" (case-insensitive)."
+  }
+}
+
+variable "scan_secrets" {
+  type        = string
+  description = "Scan for secrets/credentials on the volume (COLLECTOR_SCAN_SECRETS). \"true\" or \"false\" (case-insensitive)."
+  default     = "false"
+  validation {
+    condition     = contains(["true", "false"], lower(var.scan_secrets))
+    error_message = "scan_secrets must be \"true\" or \"false\" (case-insensitive)."
+  }
+}
+
+variable "scan_ai_workloads" {
+  type        = string
+  description = "Scan for AI/ML models, frameworks, and workloads (COLLECTOR_SCAN_AI_WORKLOADS). \"true\" or \"false\" (case-insensitive)."
+  default     = "false"
+  validation {
+    condition     = contains(["true", "false"], lower(var.scan_ai_workloads))
+    error_message = "scan_ai_workloads must be \"true\" or \"false\" (case-insensitive)."
+  }
+}
