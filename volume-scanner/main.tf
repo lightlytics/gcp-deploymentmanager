@@ -64,10 +64,7 @@ resource "google_project_iam_custom_role" "scanner" {
     # compute.disks.useReadOnly, not compute.disks.use.
     "compute.disks.useReadOnly",
     "compute.disks.delete",
-    # compute.disks.list backs the retention sweep's temp-disk reclaim
-    # (aggregatedList of cvs-scan-* scratch disks left by a crashed worker) —
-    # DEV-21348. Without it the reclaim is skipped (logged), scan unaffected.
-    "compute.disks.list",
+    "compute.disks.list", # retention sweep: reclaim cvs-scan-* temp disks (DEV-21348)
     # Snapshotting a disk is authorized by compute.disks.createSnapshot ON THE
     # SOURCE DISK — not compute.snapshots.create (which alone yields
     # PERMISSION_DENIED on disks.createSnapshot). Both are required: the former
@@ -81,11 +78,7 @@ resource "google_project_iam_custom_role" "scanner" {
     "compute.snapshots.get",
     "compute.snapshots.useReadOnly",
     "compute.snapshots.delete",
-    # compute.snapshots.list lets the cycle-start retention sweep enumerate the
-    # scanner's own snapshots (by Purpose label) to keep one incremental base
-    # per live source disk and reclaim orphans of deleted disks — DEV-21348.
-    # Without it the sweep no-ops (logged); WithSnapshot still works.
-    "compute.snapshots.list",
+    "compute.snapshots.list", # retention sweep: enumerate scanner snapshots (DEV-21348)
     # Every snapshot/disk/attach call returns an async operation the worker
     # must poll to completion. Polling needs the *Operations.get permission for
     # the operation's scope (zonal for disk/attach/createSnapshot, global for
