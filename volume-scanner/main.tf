@@ -27,6 +27,7 @@ resource "google_project_service" "apis" {
     "batch.googleapis.com",
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "secretmanager.googleapis.com",
   ])
   project            = var.project_id
   service            = each.key
@@ -86,6 +87,49 @@ resource "google_project_iam_member" "scanner_agent_reporter" {
   project = var.project_id
   role    = "roles/batch.agentReporter"
   member  = "serviceAccount:${google_service_account.scanner.email}"
+}
+
+# Collection + acknowledge tokens in Secret Manager, not plaintext Cloud Run env.
+resource "google_secret_manager_secret" "collection_token" {
+  project   = var.project_id
+  secret_id = "streamsec-volume-scanner-collection-token"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "collection_token" {
+  secret      = google_secret_manager_secret.collection_token.id
+  secret_data = var.stream_collection_token
+}
+
+resource "google_secret_manager_secret" "ack_token" {
+  project   = var.project_id
+  secret_id = "streamsec-volume-scanner-ack-token"
+  replication {
+    auto {}
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_secret_manager_secret_version" "ack_token" {
+  secret      = google_secret_manager_secret.ack_token.id
+  secret_data = var.stream_ack_token
+}
+
+resource "google_secret_manager_secret_iam_member" "collection_token_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.collection_token.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.scanner.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "ack_token_accessor" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.ack_token.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.scanner.email}"
 }
 
 # Isolated network + Cloud NAT for the no-external-IP scan workers.
@@ -181,8 +225,13 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           value = "${var.stream_api_url}/openapi/vulnerabilities/stream_scan/raw"
         }
         env {
-          name  = "COLLECTOR_STREAM_SCAN_TOKEN"
-          value = var.stream_collection_token
+          name = "COLLECTOR_STREAM_SCAN_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.collection_token.secret_id
+              version = "latest"
+            }
+          }
         }
         env {
           name  = "COLLECTOR_STREAM_SCAN_WORKSPACE"
@@ -201,14 +250,25 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           value = var.stream_customer_id
         }
         env {
-          name  = "STREAM_ACK_TOKEN"
-          value = var.stream_ack_token
+          name = "STREAM_ACK_TOKEN"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.ack_token.secret_id
+              version = "latest"
+            }
+          }
         }
       }
     }
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [
+    google_project_service.apis,
+    google_secret_manager_secret_version.collection_token,
+    google_secret_manager_secret_version.ack_token,
+    google_secret_manager_secret_iam_member.collection_token_accessor,
+    google_secret_manager_secret_iam_member.ack_token_accessor,
+  ]
 }
 
 # Cloud Scheduler cron: trigger the orchestrator daily.
