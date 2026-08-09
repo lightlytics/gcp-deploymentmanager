@@ -1,10 +1,4 @@
-# Stream Security — GCP agentless volume scanner — Infrastructure Manager
-# Terraform blueprint inputs (DEV-20325).
-#
-# Deployed via Infrastructure Manager (the successor to Deployment Manager,
-# which is EOL), matching how the Stream GCP integration onboards. The Stream
-# console renders a `gcloud infra-manager deployments apply ...` command
-# pre-filled with these values.
+# Stream Security — GCP agentless volume scanner (Infrastructure Manager blueprint inputs).
 
 variable "project_id" {
   type        = string
@@ -19,10 +13,6 @@ variable "region" {
 
 variable "scanner_image" {
   type        = string
-  # GCP Cloud Run only pulls from Artifact Registry / gcr.io / docker.io, NOT
-  # public.ecr.aws — so the GCP image is hosted in a Stream-owned public AR
-  # (mirrored there by the cloud-volume-scanner-build release pipeline). The
-  # console always passes an explicit value; this default is just a fallback.
   description = "Public scanner container image (orchestrator + worker), in a GCP-pullable registry."
   default     = "us-docker.pkg.dev/stream-secops-project/streamsec-public/volume-scanner:latest"
 }
@@ -49,12 +39,6 @@ variable "stream_collection_token" {
   sensitive   = true
 }
 
-# Per-integration scan-feature toggles (DEV-21073). The Stream console passes
-# these from the scanner deploy dialog as `--input-values scan_*=<true|false>`
-# (lowercase strings, like the other inputs); they become the orchestrator's
-# COLLECTOR_SCAN_* env, which the Batch worker inherits (childlauncher forwards
-# every COLLECTOR_* var). Defaults match the console + AWS/Azure templates:
-# CVEs on, Secrets and AI Workloads opt-in.
 variable "scan_language_packages" {
   type        = string
   description = "Scan OS/language packages for CVEs (COLLECTOR_SCAN_LANGUAGE_PACKAGES). \"true\" or \"false\" (case-insensitive)."

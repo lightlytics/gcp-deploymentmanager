@@ -1,9 +1,4 @@
-# Stream Security — GCP agentless volume scanner — Infrastructure Manager
-# Terraform blueprint (DEV-20325).
-#
-# Provisions a single regional orchestrator (Cloud Run Job on a Cloud Scheduler
-# cron) that fans out per-shard workers as GCP Batch jobs; workers snapshot each
-# VM's boot disk, attach it, read it, and clean up. One scanner per project.
+# Stream Security — GCP agentless volume scanner (Infrastructure Manager blueprint).
 
 terraform {
   required_providers {
@@ -45,7 +40,7 @@ resource "google_service_account" "scanner" {
   display_name = "Stream Security volume scanner"
 }
 
-# Combined least-privilege custom role (discover + Batch + snapshot/disk).
+# Least-privilege custom role: discover VMs, snapshot/attach disks, run Batch workers.
 resource "google_project_iam_custom_role" "scanner" {
   project     = var.project_id
   role_id     = "streamsecVolumeScanner"
@@ -59,38 +54,19 @@ resource "google_project_iam_custom_role" "scanner" {
     "compute.disks.create",
     "compute.disks.get",
     "compute.disks.use",
-    # The scratch disk is attached to the worker in READ_ONLY mode (safer — the
-    # scanner never writes to it), which GCP authorizes via
-    # compute.disks.useReadOnly, not compute.disks.use.
     "compute.disks.useReadOnly",
     "compute.disks.delete",
-    # Snapshotting a disk is authorized by compute.disks.createSnapshot ON THE
-    # SOURCE DISK — not compute.snapshots.create (which alone yields
-    # PERMISSION_DENIED on disks.createSnapshot). Both are required: the former
-    # to read-snapshot the source boot disk, the latter to create the snapshot
-    # resource.
+    "compute.disks.list",
     "compute.disks.createSnapshot",
     "compute.snapshots.create",
-    # The snapshot is created with a Purpose label (so the cleanup GC can find
-    # its own orphans) — labeling on create requires compute.snapshots.setLabels.
     "compute.snapshots.setLabels",
     "compute.snapshots.get",
     "compute.snapshots.useReadOnly",
     "compute.snapshots.delete",
-    # Every snapshot/disk/attach call returns an async operation the worker
-    # must poll to completion. Polling needs the *Operations.get permission for
-    # the operation's scope (zonal for disk/attach/createSnapshot, global for
-    # snapshot delete). Without these the create/attach calls succeed on the
-    # server but the client's wait is denied — the scan dies right after
-    # createSnapshot and never creates/attaches the disk (the denial is a read,
-    # so it doesn't even appear in the admin-activity audit log).
+    "compute.snapshots.list",
     "compute.zoneOperations.get",
     "compute.globalOperations.get",
     "compute.regionOperations.get",
-    # Use the scanner's own subnet (below) for the Batch worker VM. Granted via
-    # this project-level role rather than a subnet-scoped IAM binding, so the
-    # runner SA only needs its documented roles (editor + projectIamAdmin) and
-    # not compute.networkAdmin/subnetworks.setIamPolicy.
     "compute.subnetworks.use",
     "batch.jobs.create",
     "batch.jobs.get",
@@ -106,23 +82,13 @@ resource "google_project_iam_member" "scanner" {
   member  = "serviceAccount:${google_service_account.scanner.email}"
 }
 
-# The Batch agent on each worker VM runs as the scanner SA and reports task state
-# to the Batch control plane; that needs roles/batch.agentReporter. Without it
-# the agent starts but can't report, and Batch fails the job with "no VM has
-# agent reporting correctly" (misleadingly looks like an egress problem).
 resource "google_project_iam_member" "scanner_agent_reporter" {
   project = var.project_id
   role    = "roles/batch.agentReporter"
   member  = "serviceAccount:${google_service_account.scanner.email}"
 }
 
-# Dedicated, isolated network for the ephemeral scan workers. They run here with
-# NO external IP and reach the Batch control plane, Compute API, and the scanner
-# image (Artifact Registry) via Cloud NAT. This makes egress part of the
-# integration: a locked-down project (external IPs blocked by org policy, no
-# pre-existing Cloud NAT) works out of the box, and nothing touches the
-# customer's own VPCs. Without it, Batch VMs fail with "no VM has agent
-# reporting correctly" before the container ever starts.
+# Isolated network + Cloud NAT for the no-external-IP scan workers.
 resource "google_compute_network" "scanner" {
   project                 = var.project_id
   name                    = "streamsec-scanner-vpc"
@@ -155,8 +121,7 @@ resource "google_compute_router_nat" "scanner" {
   source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
 }
 
-# Orchestrator Cloud Run Job. Workers are created at runtime as Batch jobs, so
-# there is no standing worker resource to declare here.
+# Orchestrator Cloud Run Job (workers are created at runtime as Batch jobs).
 resource "google_cloud_run_v2_job" "orchestrator" {
   name     = local.job_name
   location = var.region
@@ -191,12 +156,6 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           name  = "COLLECTOR_GCP_WORKER_SA"
           value = google_service_account.scanner.email
         }
-        # Subnet (with Cloud NAT, above) the Batch worker runs in — no external
-        # IP; egress via NAT. Makes locked-down projects work without customer
-        # networking changes.
-        # Batch requires BOTH network and subnetwork when the worker has no
-        # external IP. Pass the relative form (projects/..) — Batch rejects the
-        # full https self_link.
         env {
           name  = "COLLECTOR_GCP_WORKER_NETWORK"
           value = google_compute_network.scanner.id
@@ -205,10 +164,6 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           name  = "COLLECTOR_GCP_WORKER_SUBNETWORK"
           value = google_compute_subnetwork.scanner.id
         }
-        # Per-integration scan-feature toggles (DEV-21073). Set on the
-        # orchestrator; the Batch worker inherits every COLLECTOR_* var via the
-        # launcher, so these reach the process that actually scans. lower() keeps
-        # the value canonical ("true"/"false") for the collector's env parsing.
         env {
           name  = "COLLECTOR_SCAN_LANGUAGE_PACKAGES"
           value = lower(var.scan_language_packages)
@@ -221,9 +176,6 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           name  = "COLLECTOR_SCAN_AI_WORKLOADS"
           value = lower(var.scan_ai_workloads)
         }
-        # Stream scan ingest — the collector config reads these COLLECTOR_STREAM_*
-        # names (LoadFromEnv); the worker inherits them via the launcher so it can
-        # upload SBOMs + heartbeat.
         env {
           name  = "COLLECTOR_STREAM_SCAN_URL"
           value = "${var.stream_api_url}/openapi/vulnerabilities/stream_scan/raw"
@@ -240,8 +192,6 @@ resource "google_cloud_run_v2_job" "orchestrator" {
           name  = "COLLECTOR_STREAM_API_URL"
           value = var.stream_api_url
         }
-        # For the orchestrator's first-run "deployed" acknowledgement (read
-        # directly from env by ackGCPDeployedBestEffort, not via config).
         env {
           name  = "STREAM_API_URL"
           value = var.stream_api_url
@@ -261,7 +211,7 @@ resource "google_cloud_run_v2_job" "orchestrator" {
   depends_on = [google_project_service.apis]
 }
 
-# Cloud Scheduler cron -> trigger the orchestrator daily.
+# Cloud Scheduler cron: trigger the orchestrator daily.
 resource "google_cloud_scheduler_job" "cron" {
   name      = local.scheduler
   project   = var.project_id
@@ -280,9 +230,7 @@ resource "google_cloud_scheduler_job" "cron" {
   depends_on = [google_cloud_run_v2_job.orchestrator]
 }
 
-# Acknowledge the install back to Stream Security so the console flips the
-# scanner to "deployed". Best-effort: a failure here must not fail the
-# deployment (the orchestrator's first run also re-acks).
+# Acknowledge the install back to Stream Security (best-effort).
 resource "terraform_data" "acknowledge" {
   triggers_replace = [google_cloud_run_v2_job.orchestrator.uid]
 
