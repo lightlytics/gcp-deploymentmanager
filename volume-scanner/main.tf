@@ -299,7 +299,7 @@ resource "terraform_data" "acknowledge" {
     command     = <<-EOT
       curl -fsS -X POST "${var.stream_api_url}/api/accounts/${var.project_id}/gcp-scanner-acknowledge" \
         -H "Content-Type: application/json" \
-        -d '{"customer_id":"${var.stream_customer_id}","project_id":"${var.project_id}","status":"deployed","acknowledge_token":"${var.stream_ack_token}"}' \
+        -d '{"customer_id":"${var.stream_customer_id}","project_id":"${var.project_id}","status":"deployed","template_version":"${var.stream_template_version}","acknowledge_token":"${var.stream_ack_token}"}' \
         || echo "ack callback failed (non-fatal); console may show 'pending' until first scan"
     EOT
   }

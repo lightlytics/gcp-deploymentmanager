@@ -19,9 +19,16 @@ gcloud infra-manager deployments apply \
   --service-account=projects/<PROJECT_ID>/serviceAccounts/<INFRA_MANAGER_SA> \
   --git-source-repo=https://github.com/lightlytics/gcp-deploymentmanager \
   --git-source-directory=volume-scanner \
-  --git-source-ref=master \
-  --input-values=project_id=<PROJECT_ID>,region=<REGION>,scanner_image=<IMAGE>,stream_api_url=<API_URL>,stream_customer_id=<CUSTOMER_ID>,stream_ack_token=<ACK_TOKEN>,stream_collection_token=<COLLECTION_TOKEN>
+  --git-source-ref=<RELEASE_TAG> \
+  --input-values=project_id=<PROJECT_ID>,region=<REGION>,scanner_image=<IMAGE>,stream_api_url=<API_URL>,stream_customer_id=<CUSTOMER_ID>,stream_ack_token=<ACK_TOKEN>,stream_collection_token=<COLLECTION_TOKEN>,stream_template_version=<RELEASE_TAG>
 ```
+
+Pin `--git-source-ref` to a **release tag**, not `master`. Infra Manager clones
+whatever the ref points at, so `master` records nothing about what was actually
+applied and two customers deploying a week apart get different infrastructure
+under the same name. Pass the same tag as `stream_template_version`: the
+post-apply acknowledgement echoes it back, which is how Stream tells whether a
+deployment has fallen behind the current blueprint (DEV-21196).
 
 **Optional scan-feature toggles** (DEV-21073) — append to `--input-values` to
 choose what the scanner runs; omit to use the defaults. They become the

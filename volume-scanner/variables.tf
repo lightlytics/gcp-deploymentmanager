@@ -68,3 +68,9 @@ variable "scan_ai_workloads" {
     error_message = "scan_ai_workloads must be \"true\" or \"false\" (case-insensitive)."
   }
 }
+
+variable "stream_template_version" {
+  type        = string
+  description = "Release tag of this blueprint, echoed back in the install acknowledgement so Stream records which version was actually applied (DEV-21196). Empty leaves the deployment's version unknown rather than wrong."
+  default     = ""
+}
