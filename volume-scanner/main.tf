@@ -291,15 +291,45 @@ resource "google_cloud_scheduler_job" "cron" {
 }
 
 # Acknowledge the install back to Stream Security (best-effort).
+#
+# The payload is built with jsonencode and handed to curl on stdin rather than
+# interpolated into the shell command: every input here arrives from
+# --input-values, so a value containing a quote or backslash would otherwise
+# break out of the JSON literal. Passing it through the environment also keeps
+# the acknowledge token off the process command line.
+#
+# template_version is omitted entirely when unset, rather than sent empty, so
+# the wire format matches what the variable documents — an absent version reads
+# as unknown on the Stream side, never as a version that is wrong.
+locals {
+  stream_ack_url = "${var.stream_api_url}/api/accounts/${var.project_id}/gcp-scanner-acknowledge"
+
+  stream_ack_payload = jsonencode(merge(
+    {
+      customer_id       = var.stream_customer_id
+      project_id        = var.project_id
+      status            = "deployed"
+      acknowledge_token = var.stream_ack_token
+    },
+    var.stream_template_version == "" ? {} : { template_version = var.stream_template_version },
+  ))
+}
+
 resource "terraform_data" "acknowledge" {
   triggers_replace = [google_cloud_run_v2_job.orchestrator.uid]
 
   provisioner "local-exec" {
     interpreter = ["/bin/sh", "-c"]
-    command     = <<-EOT
-      curl -fsS -X POST "${var.stream_api_url}/api/accounts/${var.project_id}/gcp-scanner-acknowledge" \
+
+    environment = {
+      STREAM_ACK_URL     = local.stream_ack_url
+      STREAM_ACK_PAYLOAD = local.stream_ack_payload
+    }
+
+    command = <<-EOT
+      printf '%s' "$STREAM_ACK_PAYLOAD" | curl -fsS -X POST "$STREAM_ACK_URL" \
         -H "Content-Type: application/json" \
-        -d '{"customer_id":"${var.stream_customer_id}","project_id":"${var.project_id}","status":"deployed","template_version":"${var.stream_template_version}","acknowledge_token":"${var.stream_ack_token}"}' \
+        --data-binary @- \
         || echo "ack callback failed (non-fatal); console may show 'pending' until first scan"
     EOT
   }
