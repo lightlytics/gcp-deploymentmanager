@@ -292,15 +292,11 @@ resource "google_cloud_scheduler_job" "cron" {
 
 # Acknowledge the install back to Stream Security (best-effort).
 #
-# The payload is built with jsonencode and handed to curl on stdin rather than
-# interpolated into the shell command: every input here arrives from
-# --input-values, so a value containing a quote or backslash would otherwise
-# break out of the JSON literal. Passing it through the environment also keeps
-# the acknowledge token off the process command line.
-#
-# template_version is omitted entirely when unset, rather than sent empty, so
-# the wire format matches what the variable documents — an absent version reads
-# as unknown on the Stream side, never as a version that is wrong.
+# jsonencode + stdin rather than shell interpolation: every input arrives from
+# --input-values, so a value containing a quote would break out of the JSON
+# literal. The environment also keeps the token off the process command line.
+# template_version is omitted when unset so the wire format matches what the
+# variable documents — absent reads as unknown, never as a wrong version.
 locals {
   stream_ack_url = "${var.stream_api_url}/api/accounts/${var.project_id}/gcp-scanner-acknowledge"
 
