@@ -1,76 +1,25 @@
-# Stream Security volume scanner — Infrastructure Manager blueprint
+# Moved
 
-Terraform blueprint for the Stream Security agentless volume scanner, deployed
-via **GCP Infrastructure Manager** (the successor to the now-EOL Deployment
-Manager), matching how the Stream GCP integration onboards.
+The Stream Security agentless volume scanner now lives in the Terraform module
+repo, alongside every other GCP capability:
 
-It provisions a least-privilege service account + custom role, an orchestrator
-Cloud Run Job on a daily Cloud Scheduler trigger, and acknowledges the install
-back to Stream. Per-VM scans run as GCP Batch jobs created at runtime.
+**https://github.com/streamsec-terraform/terraform-streamsec-google-integration**
 
-## Deploy
+- `modules/volume-scanner` — the module. Call it from your own root and pin
+  `version` if you manage Stream Security as code.
+- `infrastructure-manager/volume-scanner` — the root Stream applies with
+  `gcloud infra-manager deployments apply`. Infra Manager applies a Terraform
+  *root*, not a module, which is why that wrapper exists.
 
-The Stream console (scanner **Deploy** dialog) renders a pre-filled command.
-It looks like:
+Nothing here deploys the scanner any more. If you reached this because a saved
+`gcloud infra-manager deployments apply` command failed, generate a fresh one
+from the Stream console — Integrations → Vulnerability Scanners — and it will
+point at the new location.
 
-```bash
-gcloud infra-manager deployments apply \
-  projects/<PROJECT_ID>/locations/<REGION>/deployments/streamsec-volume-scanner \
-  --service-account=projects/<PROJECT_ID>/serviceAccounts/<INFRA_MANAGER_SA> \
-  --git-source-repo=https://github.com/lightlytics/gcp-deploymentmanager \
-  --git-source-directory=volume-scanner \
-  --git-source-ref=<RELEASE_TAG> \
-  --input-values=project_id=<PROJECT_ID>,region=<REGION>,scanner_image=<IMAGE>,stream_api_url=<API_URL>,stream_customer_id=<CUSTOMER_ID>,stream_ack_token=<ACK_TOKEN>,stream_collection_token=<COLLECTION_TOKEN>,stream_template_version=<RELEASE_TAG>
-```
+Released tags of this repo (1.5.1 and earlier) still contain the old blueprint,
+so an existing deployment pinned to a tag keeps working until you re-apply.
 
-Pin `--git-source-ref` to a **release tag**, not `master` — Infra Manager clones
-whatever the ref points at, so `master` records nothing about what was applied.
-Pass the same tag as `stream_template_version`; the post-apply acknowledgement
-echoes it back, which is how Stream detects a deployment that has fallen behind.
-
-**Optional scan-feature toggles** (DEV-21073) — append to `--input-values` to
-choose what the scanner runs; omit to use the defaults. They become the
-scanner's `COLLECTOR_SCAN_*` env:
-
-| input | default | env |
-|---|---|---|
-| `scan_language_packages` | `true` (CVEs) | `COLLECTOR_SCAN_LANGUAGE_PACKAGES` |
-| `scan_secrets` | `false` | `COLLECTOR_SCAN_SECRETS` |
-| `scan_ai_workloads` | `false` | `COLLECTOR_SCAN_AI_WORKLOADS` |
-
-`<INFRA_MANAGER_SA>` is a service account Infrastructure Manager runs Terraform
-as; it needs permission to create the resources above (e.g. roles/editor +
-roles/resourcemanager.projectIamAdmin, or a scoped equivalent). See the Stream
-docs for the recommended setup.
-
-### One-time: create the runner service account
-
-Run once per project (the Stream console's Deploy dialog also shows this). It
-needs project IAM-admin, since the blueprint creates a custom role + IAM
-binding:
-
-```bash
-PROJECT=<PROJECT_ID>
-SA=infra-manager@$PROJECT.iam.gserviceaccount.com
-PROJNUM=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
-
-gcloud iam service-accounts create infra-manager --display-name="Infra Manager runner" 2>/dev/null || true
-
-for ROLE in roles/editor roles/iam.roleAdmin roles/resourcemanager.projectIamAdmin roles/config.agent; do
-  gcloud projects add-iam-policy-binding $PROJECT --member="serviceAccount:$SA" --role="$ROLE" --condition=None -q
-done
-# roles/config.agent is required — Infra Manager's Terraform state backend calls
-# config.deployments.getState as this SA; without it, `tf init` fails.
-
-# let the Infrastructure Manager service agent use the runner SA
-gcloud iam service-accounts add-iam-policy-binding $SA \
-  --member="serviceAccount:service-$PROJNUM@gcp-sa-config.iam.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountTokenCreator" -q
-```
-
-Then pass `--service-account=projects/$PROJECT/serviceAccounts/$SA` to the
-`apply` command above.
-
-## Inputs
-
-See `variables.tf`.
+Why it moved: this repo is for Google Deployment Manager, whose support ended
+2026-04-01. The scanner never used Deployment Manager — it has always been
+Terraform via Infrastructure Manager — but it should not live in a repo named
+for a retired product. See DEV-21196.
