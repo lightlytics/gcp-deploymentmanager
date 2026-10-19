@@ -5,7 +5,7 @@ PROJECT_ID=YOUR_PROJECT_ID # Your GCP Project ID
 BUCKET_NAME=YOUR_BUCKET # Where the flowlogs are stored
 REGION=us-central1 # Region where the function will be deployed
 TRIGGER_LOCATION=us # {us|eu|asia} - Location of the bucket
-SOURCE_URL=gs://streamsec-production-public-artifacts/gcp-log-collection.zip # URL of the public GCS file
+SOURCE_URL=gs://streamsec-production-public-artifacts/gcp-flow-logs-collection.zip # URL of the public GCS file
 RUNTIME=nodejs22
 
 # Environment Variables

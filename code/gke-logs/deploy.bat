@@ -4,7 +4,7 @@ set PROJECT_ID=YOUR_PROJECT_ID
 set BUCKET_NAME=YOUR_BUCKET
 set REGION=us-central1
 set TRIGGER_LOCATION=us
-set SOURCE_URL=gs://streamsec-public-artifacts/gcp-gke-logs-collection.zip
+set SOURCE_URL=gs://streamsec-production-public-artifacts/gcp-gke-logs-collection.zip
 set RUNTIME=nodejs22
 
 set API_URL=https://YOUR_ENV.streamsec.io
