@@ -116,6 +116,19 @@ describe('setup-realtime.sh install', () => {
     assert.match(invoker, new RegExp(`--member serviceAccount:${SERVICE_ACCOUNT}`))
   })
 
+  it('retries a grant while the new service account propagates, without showing the transient error', () => {
+    const { status, stdout, stderr, calls } = run(INSTALL, {
+      ...TOKEN,
+      FAKE_FLAKY: 'secrets add-iam-policy-binding',
+    })
+
+    assert.equal(status, 0, stderr)
+    assert.equal(callsTo(calls, 'secrets add-iam-policy-binding ').length, 2)
+    assert.equal(callsTo(calls, 'sleep ').length, 1)
+    assert.match(stdout, /retrying/)
+    assert.doesNotMatch(stderr, /does not exist/)
+  })
+
   it('reuses an existing secret without asking for a token', () => {
     preCreate('secret/streamsec-gke-logs-token')
 

@@ -1,0 +1,4 @@
+#!/bin/bash
+# Stands in for sleep in the setup-realtime.sh tests: records the call and
+# returns at once.
+printf 'sleep %s\n' "$*" >> "$FAKE_LOG"

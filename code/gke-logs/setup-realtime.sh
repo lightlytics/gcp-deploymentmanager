@@ -153,13 +153,17 @@ confirm() {
   esac
 }
 
-# Retries a command a few times: IAM changes on a new service account can fail
-# until the account has propagated
+# Retries a command a few times, quietly: IAM changes on a new service account
+# can fail until the account has propagated. The command's error is shown only
+# if every attempt fails.
 retry() {
-  local attempt=1
-  until "$@"; do
-    [ "$attempt" -ge 6 ] && return 1
-    info "Not ready yet, retrying in 10 seconds..."
+  local attempt=1 output
+  until output=$("$@" 2>&1); do
+    if [ "$attempt" -ge 6 ]; then
+      printf '%s\n' "$output" >&2
+      return 1
+    fi
+    info "The new identity is not visible to Google yet, retrying in 10 seconds..."
     sleep 10
     attempt=$((attempt + 1))
   done
@@ -332,7 +336,7 @@ install() {
   fi
   # shellcheck disable=SC2046
   retry gcloud secrets add-iam-policy-binding "$SECRET_NAME" $(secret_flags) \
-    --member "serviceAccount:$SERVICE_ACCOUNT" --role roles/secretmanager.secretAccessor >/dev/null
+    --member "serviceAccount:$SERVICE_ACCOUNT" --role roles/secretmanager.secretAccessor
   info "It can read secret $SECRET_NAME"
 
   step "Pub/Sub topic"
@@ -355,7 +359,7 @@ install() {
   fi
   writer=$(gcloud logging sinks describe "$SINK" --project "$PROJECT_ID" --format='value(writerIdentity)')
   retry gcloud pubsub topics add-iam-policy-binding "$TOPIC" --project "$PROJECT_ID" \
-    --member "$writer" --role roles/pubsub.publisher >/dev/null
+    --member "$writer" --role roles/pubsub.publisher
   info "The sink can publish to $TOPIC"
 
   step "Deploying function $FUNCTION (takes a few minutes)"
@@ -365,7 +369,7 @@ install() {
     --service-account "$SERVICE_ACCOUNT" --trigger-service-account "$SERVICE_ACCOUNT" \
     --set-env-vars "API_URL=$API_URL,SECRET_NAME=$secret_path" --quiet --format none
   retry gcloud functions add-invoker-policy-binding "$FUNCTION" --project "$PROJECT_ID" \
-    --region "$REGION" --member "serviceAccount:$SERVICE_ACCOUNT" >/dev/null
+    --region "$REGION" --member "serviceAccount:$SERVICE_ACCOUNT"
   info "Only $SERVICE_ACCOUNT can invoke the function"
 
   step "Checking the result"
