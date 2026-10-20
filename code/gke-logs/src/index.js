@@ -1,11 +1,17 @@
+const functions = require('@google-cloud/functions-framework')
 const { Storage } = require('@google-cloud/storage')
 const { gzipSync } = require('node:zlib')
 const storage = new Storage()
 const { RestClient } = require('./restClient')
 
-const StorageGKELogsCollection = async (event, context) => {
-  const bucketName = event.bucket
-  const fileName = event.name
+// Handlers take a single argument: with more than one, the functions framework
+// treats a CloudEvent handler as callback style and the invocation never ends.
+// 2nd gen passes a CloudEvent, 1st gen passes the event data (context unused).
+
+const StorageGKELogsCollection = async event => {
+  const { bucket: bucketName, name: fileName } = event.data?.bucket
+    ? event.data
+    : event
 
   try {
     const bucket = storage.bucket(bucketName)
@@ -18,6 +24,19 @@ const StorageGKELogsCollection = async (event, context) => {
 
   } catch (error) {
     console.error(`Error processing file ${fileName}:`, error)
+  }
+}
+
+// Each message carries a single log entry published by the Log Router sink.
+// Errors are logged and swallowed so the message is acked and never retried
+const PubSubGKELogsCollection = async event => {
+  const message = event.data?.message ?? event
+
+  try {
+    const logEntry = Buffer.from(message.data, 'base64').toString('utf-8')
+    await processGKELogFile(logEntry)
+  } catch (error) {
+    console.error('Error processing Pub/Sub message:', error)
   }
 }
 
@@ -53,7 +72,11 @@ const processGKELogFile = async (contentString) => {
   }
 }
 
+functions.cloudEvent('StorageGKELogsCollection', StorageGKELogsCollection)
+functions.cloudEvent('PubSubGKELogsCollection', PubSubGKELogsCollection)
+
 module.exports = {
   StorageGKELogsCollection,
+  PubSubGKELogsCollection,
   processGKELogFile,
 }
