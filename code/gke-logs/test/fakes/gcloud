@@ -1,0 +1,78 @@
+#!/bin/bash
+# Stands in for gcloud in the setup-realtime.sh tests. Every call is appended
+# to $FAKE_LOG, one line per call (newlines in arguments written as \n); the
+# resources the script creates are files under $FAKE_STATE.
+call="$*"
+printf '%s\n' "${call//$'\n'/\\n}" >> "$FAKE_LOG"
+
+project=
+location=
+prev=
+for arg in "$@"; do
+  [ "$prev" = --project ] && project=$arg
+  [ "$prev" = --location ] && location=$arg
+  prev=$arg
+done
+
+# Like the real gcloud, a regional secret is only reachable through its
+# regional endpoint
+if [ "$1" = secrets ] && [ -n "$location" ] &&
+  [ "${CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER-}" != "https://secretmanager.$location.rep.googleapis.com/" ]; then
+  echo "ERROR: (gcloud.secrets) INVALID_ARGUMENT: regional secret on the global endpoint" >&2
+  exit 1
+fi
+
+not_found() { echo "ERROR: NOT_FOUND: $1" >&2; exit 1; }
+exists() { [ -e "$FAKE_STATE/$1" ]; }
+must_exist() { exists "$1" || not_found "$1"; }
+create() {
+  exists "$1" && { echo "ERROR: ALREADY_EXISTS: $1" >&2; exit 1; }
+  mkdir -p "$(dirname "$FAKE_STATE/$1")"
+  cat > "$FAKE_STATE/$1"
+}
+remove() { must_exist "$1"; rm -f "$FAKE_STATE/$1"; }
+
+case "$1" in
+  iam | pubsub | logging) command="$1 $2 $3" name=$4 ;;
+  *) command="$1 $2" name=$3 ;;
+esac
+
+# $FAKE_FLAKY names a command that fails once, like an IAM change on a service
+# account that has not propagated yet
+if [ "$command" = "${FAKE_FLAKY-}" ] && [ ! -e "$FAKE_STATE/.flaked" ]; then
+  mkdir -p "$FAKE_STATE"
+  touch "$FAKE_STATE/.flaked"
+  echo "ERROR: (gcloud.$command) Status code: 400. Service account does not exist.." >&2
+  exit 1
+fi
+
+case "$command" in
+  'auth list') echo "${FAKE_ACCOUNT-admin@acme.io}" ;;
+  'auth print-access-token') echo fake-access-token ;;
+  'config get-value') echo "${FAKE_CONFIG_PROJECT-}" ;;
+  'projects describe') echo 123456789012 ;;
+  'services enable') ;;
+  'secrets describe') must_exist "secret/$name" ;;
+  'secrets create') create "secret/$name" ;; # stdin holds the secret value
+  'secrets add-iam-policy-binding') must_exist "secret/$name" ;;
+  'secrets delete') remove "secret/$name" ;;
+  'iam service-accounts describe') must_exist "service-account/$name" ;;
+  'iam service-accounts create') create "service-account/$name@$project.iam.gserviceaccount.com" < /dev/null ;;
+  'iam service-accounts delete') remove "service-account/$name" ;;
+  'pubsub topics describe') must_exist "topic/$name" ;;
+  'pubsub topics create') create "topic/$name" < /dev/null ;;
+  'pubsub topics add-iam-policy-binding') must_exist "topic/$name" ;;
+  'pubsub topics delete') remove "topic/$name" ;;
+  'logging sinks describe')
+    must_exist "sink/$name"
+    echo "serviceAccount:service-123456789012@gcp-sa-logging.iam.gserviceaccount.com"
+    ;;
+  'logging sinks create') create "sink/$name" < /dev/null ;;
+  'logging sinks update') must_exist "sink/$name" ;;
+  'logging sinks delete') remove "sink/$name" ;;
+  'functions describe') must_exist "function/$name"; echo ACTIVE ;;
+  'functions deploy') exists "function/$name" || create "function/$name" < /dev/null ;;
+  'functions add-invoker-policy-binding') must_exist "function/$name" ;;
+  'functions delete') remove "function/$name" ;;
+  *) echo "fake gcloud: unhandled command: $*" >&2; exit 2 ;;
+esac
