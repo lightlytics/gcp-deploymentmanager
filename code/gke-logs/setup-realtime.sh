@@ -53,13 +53,40 @@ UNINSTALL_PERMISSIONS=(
   iam.serviceAccounts.delete
 )
 
+# Kubernetes audit entries worth forwarding: anything done by people, successful
+# anonymous requests, high-risk actions and denied requests by workload service
+# accounts, and changes to secrets, RBAC, webhooks, admission policies and CRDs by
+# anyone. Leases, events, status updates, denied anonymous and unauthenticated
+# requests are noise.
 LOG_FILTER='resource.type="k8s_cluster"
--protoPayload.authenticationInfo.principalEmail=~"system:"
--protoPayload.authenticationInfo.principalEmail=~"@container-engine-robot.iam.gserviceaccount.com"
--protoPayload.methodName="io.k8s.coordination.v1.leases.update"
--protoPayload.methodName="io.k8s.networking.gateway.v1beta1.gatewayclasses.update"
--(protoPayload.methodName="io.k8s.networking.gateway.v1beta1.gatewayclasses.status.update")
-protoPayload.methodName=~""'
+protoPayload.methodName=~""
+-protoPayload.authenticationInfo.principalEmail=~"@container-engine-robot.iam.gserviceaccount.com$"
+-protoPayload.methodName=~"coordination.v1.leases"
+-protoPayload.methodName=~"events.(create|update|patch)$"
+-protoPayload.methodName=~"status.(update|patch)$"
+-protoPayload.methodName=~"gatewayclasses"
+-protoPayload.status.code=16
+-(protoPayload.authenticationInfo.principalEmail="system:anonymous" AND protoPayload.status.code=7)
+(
+  NOT protoPayload.authenticationInfo.principalEmail=~"^system:"
+  OR protoPayload.authenticationInfo.principalEmail="system:anonymous"
+  OR (
+    protoPayload.authenticationInfo.principalEmail=~"^system:serviceaccount:"
+    AND NOT protoPayload.authenticationInfo.principalEmail=~"^system:serviceaccount:(kube-system|kube-public|kube-node-lease|gke-managed-[a-z0-9-]+|gmp-system|gmp-public|streamsec-agent):"
+    AND (
+      protoPayload.methodName=~"(pods.(exec|attach|portforward|proxy|ephemeralcontainers)|secrets.(get|create|update|patch|delete)$|serviceaccounts.token.create$|(daemonsets|cronjobs).create$)"
+      OR protoPayload.status.code=7
+    )
+  )
+  OR (
+    protoPayload.methodName=~"(secrets|serviceaccounts|roles|rolebindings|webhookconfigurations|validatingadmissionpolic|customresourcedefinitions|pods.(exec|attach|portforward|proxy|ephemeralcontainers)|nodes.proxy)"
+    AND protoPayload.methodName=~"(create|update|patch|delete|deletecollection)$"
+    AND NOT (
+      protoPayload.authenticationInfo.principalEmail=~"^system:node:"
+      AND protoPayload.methodName=~"serviceaccounts.token.create$"
+    )
+  )
+)'
 
 PROJECT_ID=
 API_URL=

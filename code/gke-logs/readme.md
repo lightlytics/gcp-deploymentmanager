@@ -63,17 +63,17 @@ bash setup-realtime.sh --project PROJECT_ID --uninstall --delete-secret
 What it creates in the project:
 
 1. The Pub/Sub topic `streamsec-gke-audit-logs`
-2. The Log Router sink `streamsec-gke-audit-logs-pubsub` that publishes to the topic, with the filter below (plus a
-   `resource.labels.cluster_name` clause when `--cluster` is given):
-    ```
-    resource.type="k8s_cluster"
-    -protoPayload.authenticationInfo.principalEmail=~"system:"
-    -protoPayload.authenticationInfo.principalEmail=~"@container-engine-robot.iam.gserviceaccount.com"
-    -protoPayload.methodName="io.k8s.coordination.v1.leases.update"
-    -protoPayload.methodName="io.k8s.networking.gateway.v1beta1.gatewayclasses.update"
-    -(protoPayload.methodName="io.k8s.networking.gateway.v1beta1.gatewayclasses.status.update")
-    protoPayload.methodName=~""
-    ```
+2. The Log Router sink `streamsec-gke-audit-logs-pubsub` that publishes to the topic. Its filter is `LOG_FILTER` in
+   `setup-realtime.sh` (plus a `resource.labels.cluster_name` clause when `--cluster` is given). It forwards:
+    - everything done by people and other non-system identities
+    - successful anonymous requests
+    - for workload service accounts outside the system namespaces: exec, attach, port-forward and proxy, secret reads
+      and writes, token requests, DaemonSet and CronJob creation, and denied requests
+    - changes to secrets, service accounts, RBAC, webhooks, admission policies and CRDs by anyone, except kubelet token
+      requests
+
+   It drops leases, Kubernetes events, status updates, GKE's own service account, denied anonymous requests and
+   unauthenticated requests.
 3. The `Pub/Sub Publisher` role on the topic for the sink's writer identity
 4. The `stream-sec-gke-logs-pubsub` function (2nd gen, entry point `PubSubGKELogsCollection`), triggered by the topic
    and running as `streamsec-gke-audit`

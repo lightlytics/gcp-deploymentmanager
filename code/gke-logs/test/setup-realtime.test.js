@@ -83,7 +83,13 @@ describe('setup-realtime.sh install', () => {
     const [sink] = callsTo(calls, 'logging sinks create streamsec-gke-audit-logs-pubsub ')
     assert.match(sink, / pubsub\.googleapis\.com\/projects\/acme-prod\/topics\/streamsec-gke-audit-logs /)
     assert.match(sink, /resource\.type="k8s_cluster"/)
-    assert.match(sink, /-protoPayload\.authenticationInfo\.principalEmail=~"system:"/)
+    assert.match(sink, /-protoPayload\.methodName=~"events\.\(create\|update\|patch\)\$"/)
+    assert.match(sink, /-protoPayload\.status\.code=16/)
+    assert.match(
+      sink,
+      /-\(protoPayload\.authenticationInfo\.principalEmail="system:anonymous" AND protoPayload\.status\.code=7\)/,
+    )
+    assert.match(sink, /OR protoPayload\.status\.code=7\\n/)
     assert.doesNotMatch(sink, /cluster_name/)
     const [publisher] = callsTo(calls, 'pubsub topics add-iam-policy-binding streamsec-gke-audit-logs ')
     assert.match(publisher, /--member serviceAccount:service-123456789012@gcp-sa-logging\.iam\.gserviceaccount\.com/)
