@@ -1,0 +1,19 @@
+#!/bin/bash
+# Stands in for curl in the setup-realtime.sh tests. Answers the project
+# testIamPermissions call, granting every requested permission except those
+# listed (space separated) in $FAKE_DENIED.
+printf 'curl %s\n' "$*" >> "$FAKE_LOG"
+
+body=
+prev=
+for arg in "$@"; do
+  [ "$prev" = -d ] && body=$arg
+  prev=$arg
+done
+
+granted=
+for permission in $(printf '%s' "$body" | grep -oE '"[a-z]+(\.[A-Za-z]+)+"' | tr -d '"'); do
+  case " ${FAKE_DENIED-} " in *" $permission "*) continue ;; esac
+  granted="$granted\"$permission\","
+done
+printf '{"permissions": [%s]}\n' "${granted%,}"
