@@ -90,6 +90,12 @@ describe('setup-realtime.sh install', () => {
       /-\(protoPayload\.authenticationInfo\.principalEmail="system:anonymous" AND protoPayload\.status\.code=7\)/,
     )
     assert.match(sink, /OR protoPayload\.status\.code=7\\n/)
+    // health probes read these paths anonymously all the time, allowed by the default
+    // system:public-info-viewer role
+    assert.match(
+      sink,
+      /-\(protoPayload\.authenticationInfo\.principalEmail="system:anonymous" AND protoPayload\.resourceName=~"\^\(healthz\|livez\|readyz\|version\)\(\/\|\$\)"\)/,
+    )
     assert.doesNotMatch(sink, /cluster_name/)
     const [publisher] = callsTo(calls, 'pubsub topics add-iam-policy-binding streamsec-gke-audit-logs ')
     assert.match(publisher, /--member serviceAccount:service-123456789012@gcp-sa-logging\.iam\.gserviceaccount\.com/)

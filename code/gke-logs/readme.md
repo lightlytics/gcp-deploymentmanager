@@ -72,8 +72,9 @@ What it creates in the project:
     - changes to secrets, service accounts, RBAC, webhooks, admission policies and CRDs by anyone, except kubelet token
       requests
 
-   It drops leases, Kubernetes events, status updates, GKE's own service account, denied anonymous requests and
-   unauthenticated requests.
+   It drops leases, Kubernetes events, status updates, GKE's own service account, denied anonymous requests,
+   unauthenticated requests, and anonymous health and version checks (`healthz`, `livez`, `readyz`, `version`) that
+   probes make constantly.
 3. The `Pub/Sub Publisher` role on the topic for the sink's writer identity
 4. The `stream-sec-gke-logs-pubsub` function (2nd gen, entry point `PubSubGKELogsCollection`), triggered by the topic
    and running as `streamsec-gke-audit`

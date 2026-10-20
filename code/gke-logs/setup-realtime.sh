@@ -57,7 +57,8 @@ UNINSTALL_PERMISSIONS=(
 # anonymous requests, high-risk actions and denied requests by workload service
 # accounts, and changes to secrets, RBAC, webhooks, admission policies and CRDs by
 # anyone. Leases, events, status updates, denied anonymous and unauthenticated
-# requests are noise.
+# requests are noise, and so are anonymous health and version checks: probes make
+# them constantly, allowed by the default system:public-info-viewer role.
 LOG_FILTER='resource.type="k8s_cluster"
 protoPayload.methodName=~""
 -protoPayload.authenticationInfo.principalEmail=~"@container-engine-robot.iam.gserviceaccount.com$"
@@ -67,6 +68,7 @@ protoPayload.methodName=~""
 -protoPayload.methodName=~"gatewayclasses"
 -protoPayload.status.code=16
 -(protoPayload.authenticationInfo.principalEmail="system:anonymous" AND protoPayload.status.code=7)
+-(protoPayload.authenticationInfo.principalEmail="system:anonymous" AND protoPayload.resourceName=~"^(healthz|livez|readyz|version)(/|$)")
 (
   NOT protoPayload.authenticationInfo.principalEmail=~"^system:"
   OR protoPayload.authenticationInfo.principalEmail="system:anonymous"
