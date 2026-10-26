@@ -138,7 +138,7 @@ describe('setup-realtime.sh install', () => {
 
   it('sends to the scheme and host of the URL given, as a URL copied from the browser has a path', () => {
     const { status, stderr, stdout, calls } = run(
-      ['--project', 'acme-prod', '--api-url', 'acme.streamsec.io/w/6123d08a/activities/audit', '--yes'],
+      ['--project', 'acme-prod', '--api-url', 'acme.streamsec.io/w/0123abcd/activities/audit', '--yes'],
       TOKEN,
     )
 
