@@ -1,6 +1,8 @@
 const { describe, it, before, after, beforeEach } = require('node:test')
 const assert = require('node:assert/strict')
 const http = require('node:http')
+const { inspect } = require('node:util')
+const { randomBytes } = require('node:crypto')
 const { gunzipSync } = require('node:zlib')
 
 const deploymentCreate = {
@@ -54,10 +56,28 @@ const toBase64 = text => Buffer.from(text, 'utf-8').toString('base64')
 const decodeRecords = batch =>
   JSON.parse(gunzipSync(Buffer.from(batch.records, 'base64')).toString())
 
+// Random data barely compresses: each of these adds about 350 KB to the gzipped,
+// base64 records, so two fit under the collection API's 900 KB and three do not
+const largeEntry = n => ({
+  ...deploymentCreate,
+  insertId: `large-${n}`,
+  protoPayload: {
+    ...deploymentCreate.protoPayload,
+    request: { data: randomBytes(262 * 1024).toString('base64') },
+  },
+})
+const assertUnderLimit = () => {
+  for (const batch of apiBatches) {
+    assert.ok(batch.records.length <= 900 * 1024, `records of ${batch.records.length} bytes`)
+  }
+}
+
 // One local server stands in for both the Stream Security collection API and
 // the Cloud Storage JSON API (through STORAGE_EMULATOR_HOST)
 const apiBatches = []
+const apiTokens = []
 const bucketObjects = new Map()
+let apiStatus = 200
 let fakeServer
 
 const handleFakeRequest = (req, res) => {
@@ -67,8 +87,9 @@ const handleFakeRequest = (req, res) => {
     req.on('data', chunk => (body += chunk))
     req.on('end', () => {
       apiBatches.push(JSON.parse(body))
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end('{"successful":true}')
+      apiTokens.push(req.headers['x-lightlytics-token'])
+      res.writeHead(apiStatus, { 'Content-Type': 'application/json' })
+      res.end(apiStatus === 200 ? '{"successful":true}' : '{"error":"unavailable"}')
     })
     return
   }
@@ -112,7 +133,8 @@ before(async () => {
 
   process.env.NODE_ENV = 'production'
   process.env.API_URL = fakeUrl
-  process.env.API_TOKEN = 'test-token'
+  // as a token pasted into a secret or variable often ends up
+  process.env.API_TOKEN = 'test-token\n'
   process.env.STORAGE_EMULATOR_HOST = fakeUrl
   delete process.env.SECRET_NAME
 
@@ -127,6 +149,61 @@ after(async () => {
 
 beforeEach(() => {
   apiBatches.length = 0
+  apiTokens.length = 0
+  apiStatus = 200
+  delete process.env.BATCH_SIZE
+  delete process.env.BATCH_MAX_WAIT_MS
+  delete process.env.SECRET_NAME
+})
+
+// About 1.1 MB of text that gzip shrinks to almost nothing
+const bulkyEntry = n => ({
+  ...deploymentCreate,
+  insertId: `bulky-${n}`,
+  protoPayload: { ...deploymentCreate.protoPayload, request: { data: 'a'.repeat(1100 * 1024) } },
+})
+
+describe('sending to Stream Security', () => {
+  const sendOne = () =>
+    gkeLogs.PubSubGKELogsCollection({ data: toBase64(JSON.stringify(deploymentCreate)), attributes: {} })
+  const logged = consoleError =>
+    consoleError.mock.calls.map(call => call.arguments.map(arg => inspect(arg, { depth: 10 })).join(' '))
+
+  it('sends the collection token without the whitespace around it', async () => {
+    await sendOne()
+
+    assert.deepEqual(apiTokens, ['test-token'])
+  })
+
+  it('logs a failed send with its status and without the collection token', async t => {
+    const consoleError = t.mock.method(console, 'error', () => {})
+    apiStatus = 503
+
+    await sendOne()
+
+    const lines = logged(consoleError)
+    assert.ok(lines.length >= 1)
+    assert.ok(lines.some(line => line.includes('503')), lines.join('\n'))
+    assert.ok(lines.every(line => !line.includes('test-token')), 'the token was logged')
+  })
+
+  it('does not send without the collection token when it cannot be read', async t => {
+    const consoleError = t.mock.method(console, 'error', () => {})
+    process.env.SECRET_NAME = 'projects/acme-prod/locations/'
+
+    await sendOne()
+
+    assert.equal(apiBatches.length, 0)
+    assert.ok(logged(consoleError).some(line => line.includes('collection token')))
+  })
+
+  it('keeps the path of API_URL, as a proxy in front of Stream Security can have one', () => {
+    const { formatUrl } = require('../src/restClient')
+
+    assert.equal(formatUrl('https://proxy.acme.io/streamsec/'), 'https://proxy.acme.io/streamsec')
+    assert.equal(formatUrl('app.streamsec.io/'), 'https://app.streamsec.io')
+    assert.equal(formatUrl('http://localhost:8080'), 'http://localhost:8080')
+  })
 })
 
 describe('PubSubGKELogsCollection', () => {
@@ -234,6 +311,145 @@ describe('PubSubGKELogsCollection', () => {
   })
 })
 
+describe('PubSubGKELogsCollection batching', () => {
+  // Invocations as Pub/Sub makes them on an instance with concurrency: all at once
+  const deliver = entries =>
+    Promise.all(
+      entries.map(entry =>
+        gkeLogs.PubSubGKELogsCollection({ data: toBase64(JSON.stringify(entry)), attributes: {} }),
+      ),
+    )
+  const sentEntries = () => apiBatches.flatMap(decodeRecords)
+  const configMapChange = n => ({
+    ...deploymentCreate,
+    insertId: `configmap-${n}`,
+    protoPayload: { ...deploymentCreate.protoPayload, methodName: 'io.k8s.core.v1.configmaps.create' },
+  })
+
+  it('sends each entry on its own when BATCH_SIZE is not set', async () => {
+    await deliver([deploymentCreate, secretRead])
+
+    assert.equal(apiBatches.length, 2)
+    assert.deepEqual(apiBatches.map(b => b.recordCount), [1, 1])
+  })
+
+  it('sends entries that arrive together in one request once BATCH_SIZE are waiting', { timeout: 5000 }, async () => {
+    process.env.BATCH_SIZE = '3'
+    process.env.BATCH_MAX_WAIT_MS = '60000'
+
+    await deliver([deploymentCreate, secretRead, configMapChange(1)])
+
+    assert.equal(apiBatches.length, 1)
+    assert.equal(apiBatches[0].recordCount, 3)
+    assert.deepEqual(apiBatches[0].resource_ids, [
+      'projects/acme-prod/locations/us-central1/clusters/web-cluster',
+      'projects/acme-prod/locations/europe-west1-b/clusters/payments',
+    ])
+    assert.deepEqual(decodeRecords(apiBatches[0]), [deploymentCreate, secretRead, configMapChange(1)])
+  })
+
+  it('sends what is waiting BATCH_MAX_WAIT_MS after the first entry', async () => {
+    process.env.BATCH_SIZE = '10'
+    process.env.BATCH_MAX_WAIT_MS = '50'
+    const started = Date.now()
+
+    await deliver([deploymentCreate, secretRead])
+
+    assert.ok(Date.now() - started >= 45, 'sent before the wait ended')
+    assert.equal(apiBatches.length, 1)
+    assert.equal(apiBatches[0].recordCount, 2)
+  })
+
+  it('starts a new batch for entries that arrive after a batch is sent', { timeout: 5000 }, async () => {
+    process.env.BATCH_SIZE = '2'
+    process.env.BATCH_MAX_WAIT_MS = '60000'
+
+    await deliver([configMapChange(1), configMapChange(2), configMapChange(3), configMapChange(4)])
+
+    assert.deepEqual(apiBatches.map(b => b.recordCount), [2, 2])
+    assert.deepEqual(sentEntries(), [1, 2, 3, 4].map(configMapChange))
+  })
+
+  it('splits a batch so that each request stays under the collection API limit', { timeout: 10000 }, async () => {
+    process.env.BATCH_SIZE = '3'
+    const large = [1, 2, 3].map(largeEntry)
+
+    await deliver(large)
+
+    assertUnderLimit()
+    assert.deepEqual(apiBatches.map(b => b.recordCount), [2, 1])
+    assert.deepEqual(sentEntries(), large)
+  })
+
+  it('sends a batch once its entries reach 4 MB, before BATCH_SIZE or the wait', { timeout: 10000 }, async () => {
+    process.env.BATCH_SIZE = '100'
+    process.env.BATCH_MAX_WAIT_MS = '60000'
+
+    await deliver([1, 2, 3, 4].map(bulkyEntry))
+
+    assert.deepEqual(apiBatches.map(b => b.recordCount), [4])
+  })
+
+  // Runs the batch timer, the first one set, at once and returns how long each
+  // timer was set for; other timers, such as the request's, run as set
+  const batchTimerDelays = t => {
+    const delays = []
+    const realSetTimeout = setTimeout
+    t.mock.method(globalThis, 'setTimeout', (callback, ms, ...args) => {
+      delays.push(ms)
+      return realSetTimeout(callback, delays.length === 1 ? 0 : ms, ...args)
+    })
+    return delays
+  }
+
+  it('waits at most 30 seconds, whatever BATCH_MAX_WAIT_MS says', { timeout: 5000 }, async t => {
+    const delays = batchTimerDelays(t)
+    process.env.BATCH_SIZE = '10'
+    process.env.BATCH_MAX_WAIT_MS = '600000'
+
+    await deliver([deploymentCreate])
+
+    assert.equal(delays[0], 30000)
+    assert.equal(apiBatches.length, 1)
+  })
+
+  it('waits 2 seconds when BATCH_MAX_WAIT_MS is not set', { timeout: 5000 }, async t => {
+    const delays = batchTimerDelays(t)
+    process.env.BATCH_SIZE = '10'
+
+    await deliver([deploymentCreate])
+
+    assert.equal(delays[0], 2000)
+  })
+
+  it('ends every waiting invocation when the batch cannot be sent', { timeout: 5000 }, async t => {
+    const consoleError = t.mock.method(console, 'error', () => {})
+    process.env.BATCH_SIZE = '2'
+    process.env.BATCH_MAX_WAIT_MS = '60000'
+    apiStatus = 503
+
+    await deliver([deploymentCreate, secretRead])
+
+    assert.equal(apiBatches.length, 1)
+    assert.ok(consoleError.mock.callCount() >= 1)
+  })
+
+  it('drops a malformed message and sends the others of its batch', { timeout: 5000 }, async t => {
+    const consoleError = t.mock.method(console, 'error', () => {})
+    process.env.BATCH_SIZE = '2'
+    process.env.BATCH_MAX_WAIT_MS = '60000'
+
+    await Promise.all([
+      gkeLogs.PubSubGKELogsCollection({ data: toBase64('{"insertId": "trunc'), attributes: {} }),
+      deliver([deploymentCreate, secretRead]),
+    ])
+
+    assert.equal(consoleError.mock.callCount(), 1)
+    assert.equal(apiBatches.length, 1)
+    assert.deepEqual(sentEntries(), [deploymentCreate, secretRead])
+  })
+})
+
 describe('StorageGKELogsCollection', () => {
   before(() => {
     bucketObjects.set(
@@ -299,6 +515,40 @@ describe('StorageGKELogsCollection', () => {
 
     assert.ok(res.ok, `status ${res.status}`)
     assertSentWholeFile()
+  })
+
+  it('skips a malformed line and sends the rest of the file', async t => {
+    const consoleError = t.mock.method(console, 'error', () => {})
+    bucketObjects.set(
+      `${BUCKET}/partly-broken.json`,
+      `${JSON.stringify(deploymentCreate)}\n{"insertId": "trunc\n${JSON.stringify(secretRead)}\n`,
+    )
+
+    await gkeLogs.StorageGKELogsCollection({ ...storageObject, name: 'partly-broken.json' })
+
+    assert.equal(consoleError.mock.callCount(), 1)
+    assert.deepEqual(apiBatches.flatMap(decodeRecords), [deploymentCreate, secretRead])
+  })
+
+  it('sends a large file in batches of at most 4 MB of entries', { timeout: 10000 }, async () => {
+    const bulky = [1, 2, 3, 4, 5].map(bulkyEntry)
+    bucketObjects.set(`${BUCKET}/bulky.json`, bulky.map(entry => JSON.stringify(entry)).join('\n'))
+
+    await gkeLogs.StorageGKELogsCollection({ ...storageObject, name: 'bulky.json' })
+
+    assert.deepEqual(apiBatches.map(b => b.recordCount), [4, 1])
+    assert.deepEqual(apiBatches.flatMap(decodeRecords), bulky)
+  })
+
+  it('splits a large file so that each request stays under the collection API limit', { timeout: 10000 }, async () => {
+    const large = [1, 2, 3].map(largeEntry)
+    bucketObjects.set(`${BUCKET}/large.json`, large.map(entry => JSON.stringify(entry)).join('\n'))
+
+    await gkeLogs.StorageGKELogsCollection({ ...storageObject, name: 'large.json' })
+
+    assertUnderLimit()
+    assert.deepEqual(apiBatches.map(b => b.recordCount), [2, 1])
+    assert.deepEqual(apiBatches.flatMap(decodeRecords), large)
   })
 
   it('sends every entry when called with 1st gen (object, context) arguments', async () => {
