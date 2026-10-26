@@ -1,8 +1,10 @@
 #!/bin/bash
-# Sets up real-time GKE audit log collection for Stream Security in one GCP
-# project: checks permissions, enables the APIs, stores the collection token in
-# Secret Manager, creates a service account, a Pub/Sub topic and a Log Router
-# sink, and deploys the function that forwards each audit event.
+# Sets up real-time GKE audit log collection for Stream Security: checks
+# permissions, enables the APIs, stores the collection token in Secret Manager,
+# creates a service account, a Pub/Sub topic and a Log Router sink, and deploys
+# the function that forwards each audit event. The sink covers one project or,
+# with --organization or --folder, every project under it, so one collection
+# token and one function serve them all.
 # Run with --uninstall to remove it. Run with --help for the options.
 set -euo pipefail
 
@@ -37,9 +39,6 @@ INSTALL_PERMISSIONS=(
   pubsub.topics.create
   pubsub.topics.get
   pubsub.topics.setIamPolicy
-  logging.sinks.create
-  logging.sinks.get
-  logging.sinks.update
   cloudfunctions.functions.create
   cloudfunctions.functions.get
   cloudfunctions.functions.update
@@ -47,10 +46,19 @@ INSTALL_PERMISSIONS=(
 )
 
 UNINSTALL_PERMISSIONS=(
-  logging.sinks.delete
   cloudfunctions.functions.delete
   pubsub.topics.delete
   iam.serviceAccounts.delete
+)
+
+# Checked where the sink goes: the project, or the organization or folder
+SINK_INSTALL_PERMISSIONS=(
+  logging.sinks.create
+  logging.sinks.get
+  logging.sinks.update
+)
+SINK_UNINSTALL_PERMISSIONS=(
+  logging.sinks.delete
 )
 
 # Kubernetes audit entries worth forwarding: anything done by people, successful
@@ -91,11 +99,16 @@ protoPayload.methodName=~""
 )'
 
 PROJECT_ID=
+ORGANIZATION_ID=
+FOLDER_ID=
+PROJECTS=()
 API_URL=
 REGION=us-central1
 SECRET_NAME=streamsec-gke-logs-token
 SECRET_LOCATION=
 CLUSTERS=()
+BATCH_SIZE=500
+BATCH_MAX_WAIT_MS=2000
 SOURCE=$DEFAULT_SOURCE
 UNINSTALL=false
 DELETE_SECRET=false
@@ -105,11 +118,18 @@ usage() {
   cat <<EOF
 Usage: bash setup-realtime.sh [options]
 
-Sends the GKE audit logs of one GCP project to Stream Security in real time.
+Sends GKE audit logs to Stream Security in real time, from one GCP project or,
+with --organization or --folder, from every project under it.
 Anything required and not given as an option is asked for.
 
 Options:
-  --project ID            GCP project that holds the GKE clusters
+  --project ID            GCP project that holds the GKE clusters. With --organization or
+                          --folder, the project that holds the collector (default: the
+                          current gcloud project)
+  --organization ID       Collect from every project in this organization (numeric ID),
+                          including projects added later
+  --folder ID             Collect from every project in this folder (numeric ID)
+  --projects P1,P2        With --organization or --folder, collect only these projects
   --api-url URL           The URL you open Stream Security at, e.g. https://app.streamsec.io
   --region REGION         Region of the function (default: $REGION)
   --secret-name NAME      Secret Manager secret with the collection token (default: $SECRET_NAME).
@@ -117,9 +137,14 @@ Options:
                           is read from STREAMSEC_COLLECTION_TOKEN or asked for without echo.
   --secret-location LOC   Region of a regional secret (default: a global secret)
   --cluster NAME          Collect only this cluster's audit logs; repeat for more clusters
-                          (default: every cluster in the project)
+                          (default: every cluster)
+  --batch-size N          Send up to N audit entries per request to Stream Security, 1 to 1000
+                          (default: $BATCH_SIZE)
+  --batch-max-wait-ms MS  Send the entries waiting this long after the first, even if fewer
+                          than --batch-size, 1 to 30000 (default: $BATCH_MAX_WAIT_MS)
   --source URL            Function source (default: $DEFAULT_SOURCE)
-  --uninstall             Remove the sink, function, topic and service account
+  --uninstall             Remove the sink, function, topic and service account. Pass the
+                          same --organization or --folder as the install
   --delete-secret         With --uninstall, also delete the secret
   --yes                   Do not ask for confirmation
   -h, --help              Show this help
@@ -171,15 +196,39 @@ retry() {
   done
 }
 
+# Runs a command without its chatter, showing its output only if it fails
+quiet() {
+  local output
+  output=$("$@" 2>&1) || { printf '%s\n' "$output" >&2; return 1; }
+}
+
+org_wide() {
+  [ -n "$ORGANIZATION_ID$FOLDER_ID" ]
+}
+
 parse_args() {
+  local value projects project
   while [ $# -gt 0 ]; do
     case "$1" in
       --project) PROJECT_ID=${2:?--project needs a value}; shift ;;
+      --organization) ORGANIZATION_ID=${2:?--organization needs a value}; shift ;;
+      --folder) FOLDER_ID=${2:?--folder needs a value}; shift ;;
+      --projects)
+        # project IDs have no spaces: "a, b," is a and b
+        value=${2:?--projects needs a value}
+        IFS=, read -r -a projects <<< "${value// /}"
+        for project in ${projects[@]+"${projects[@]}"}; do
+          if [ -n "$project" ]; then PROJECTS+=("$project"); fi
+        done
+        shift
+        ;;
       --api-url) API_URL=${2:?--api-url needs a value}; shift ;;
       --region) REGION=${2:?--region needs a value}; shift ;;
       --secret-name) SECRET_NAME=${2:?--secret-name needs a value}; shift ;;
       --secret-location) SECRET_LOCATION=${2:?--secret-location needs a value}; shift ;;
       --cluster) CLUSTERS+=("${2:?--cluster needs a value}"); shift ;;
+      --batch-size) BATCH_SIZE=${2:?--batch-size needs a value}; shift ;;
+      --batch-max-wait-ms) BATCH_MAX_WAIT_MS=${2:?--batch-max-wait-ms needs a value}; shift ;;
       --source) SOURCE=${2:?--source needs a value}; shift ;;
       --uninstall) UNINSTALL=true ;;
       --delete-secret) DELETE_SECRET=true ;;
@@ -189,10 +238,66 @@ parse_args() {
     esac
     shift
   done
+  if [ -n "$ORGANIZATION_ID" ] && [ -n "$FOLDER_ID" ]; then
+    die "Pass either --organization or --folder, not both."
+  fi
+  case "$ORGANIZATION_ID$FOLDER_ID" in
+    *[!0-9]*) die "Organization and folder IDs are numeric, e.g. --organization 123456789012." ;;
+  esac
+  if [ ${#PROJECTS[@]} -gt 0 ] && ! org_wide; then
+    die "--projects works with --organization or --folder. For one project, use --project."
+  fi
+  # A batch fills only with invocations one instance runs at once, at most the
+  # function's concurrency (1000), and the wait has to end well within its timeout
+  in_range "$BATCH_SIZE" 1000 || die "--batch-size takes a whole number from 1 to 1000."
+  in_range "$BATCH_MAX_WAIT_MS" 30000 || die "--batch-max-wait-ms takes a whole number from 1 to 30000."
+}
+
+# True when the value is a whole number from 1 to the maximum
+in_range() {
+  case "$1" in
+    '' | *[!0-9]*) return 1 ;;
+  esac
+  [ "$1" -ge 1 ] && [ "$1" -le "$2" ]
+}
+
+# Where the sink goes: the project, or the organization or folder whose projects
+# it collects from
+set_scope() {
+  if [ -n "$ORGANIZATION_ID" ]; then
+    SCOPE_RESOURCE=organizations/$ORGANIZATION_ID
+    SCOPE_LABEL="organization $ORGANIZATION_ID"
+    SINK_FLAGS=(--organization "$ORGANIZATION_ID")
+  elif [ -n "$FOLDER_ID" ]; then
+    SCOPE_RESOURCE=folders/$FOLDER_ID
+    SCOPE_LABEL="folder $FOLDER_ID"
+    SINK_FLAGS=(--folder "$FOLDER_ID")
+  else
+    SCOPE_RESOURCE=projects/$PROJECT_ID
+    SCOPE_LABEL="project $PROJECT_ID"
+    SINK_FLAGS=(--project "$PROJECT_ID")
+  fi
+  SINK_WRITE_FLAGS=("${SINK_FLAGS[@]}")
+  if org_wide; then
+    SINK_WRITE_FLAGS+=(--include-children)
+    SCOPE_OPTION="${SINK_FLAGS[*]} "
+  else
+    SCOPE_OPTION=
+  fi
 }
 
 ask_for_missing() {
   local default
+  # Organization-wide, the project only holds the collector, so the current one
+  # is a fine default
+  if [ -z "$PROJECT_ID" ] && org_wide; then
+    PROJECT_ID=$(gcloud config get-value project 2>/dev/null || true)
+    if [ -z "$PROJECT_ID" ]; then
+      interactive || die "Pass --project (the project that will hold the collector)."
+      read -r -p "GCP project to hold the collector: " PROJECT_ID
+      [ -n "$PROJECT_ID" ] || die "A project ID is required."
+    fi
+  fi
   if [ -z "$PROJECT_ID" ]; then
     interactive || die "Pass --project (the GCP project that holds the GKE clusters)."
     default=$(gcloud config get-value project 2>/dev/null || true)
@@ -204,6 +309,12 @@ ask_for_missing() {
     interactive || die "Pass --api-url (the URL you open Stream Security at)."
     read -r -p "Stream Security URL (e.g. https://app.streamsec.io): " API_URL
     [ -n "$API_URL" ] || die "The Stream Security URL is required."
+  fi
+  # The collection API is at the root of the host: keep the scheme (https:// when
+  # none is given) and the host, and drop the path a URL copied from the browser has
+  if [ -n "$API_URL" ]; then
+    [[ "$API_URL" =~ ^https?:// ]] || API_URL="https://$API_URL"
+    if [[ "$API_URL" =~ ^(https?://[^/?#]+) ]]; then API_URL=${BASH_REMATCH[1]}; fi
   fi
 }
 
@@ -232,32 +343,59 @@ role_for() {
   esac
 }
 
-# Asks Cloud Resource Manager which of the permissions the account holds on the
-# project, and stops before any change if one is missing
+# Asks Cloud Resource Manager which of the permissions the account holds on a
+# resource (projects/ID, organizations/ID or folders/ID), and lists the missing
+# ones. Fails if one is missing.
 check_permissions() {
-  local body response granted permission missing=()
+  local resource=$1 kind body response granted permission missing=()
+  shift
+  kind=${resource%%s/*}
   body=$(printf '"%s",' "$@")
   body="{\"permissions\":[${body%,}]}"
   if ! response=$(curl -sS -X POST \
     -H "Authorization: Bearer $(gcloud auth print-access-token)" \
     -H "Content-Type: application/json" \
-    "https://cloudresourcemanager.googleapis.com/v1/projects/$PROJECT_ID:testIamPermissions" \
+    "https://cloudresourcemanager.googleapis.com/v3/$resource:testIamPermissions" \
     -d "$body" 2>&1) || [[ "$response" == *'"error"'* ]]; then
-    info "Could not check permissions, continuing. Response: $response"
-    return 0
+    # The project was found already. Checking an organization or folder takes no
+    # permission, so failing means a wrong ID.
+    if [ "$kind" = project ]; then
+      info "Could not check permissions on $kind ${resource#*/}, continuing. Response: $response"
+      return 0
+    fi
+    echo "ERROR: Could not check permissions on $kind ${resource#*/}. Is the ID right? Response: $response" >&2
+    return 1
   fi
   granted=$(printf '%s' "$response" | grep -oE '"[a-z]+(\.[A-Za-z]+)+"' | tr -d '"' || true)
   for permission in "$@"; do
     printf '%s\n' "$granted" | grep -qxF "$permission" || missing+=("$permission")
   done
-  if [ ${#missing[@]} -gt 0 ]; then
-    echo "ERROR: $ACCOUNT is missing these permissions on project $PROJECT_ID:" >&2
-    for permission in "${missing[@]}"; do
-      printf '         %-40s in %s\n' "$permission" "$(role_for "$permission")" >&2
-    done
-    echo "       Project Owner includes all of them. Nothing was changed." >&2
-    exit 1
+  [ ${#missing[@]} -eq 0 ] && return 0
+  echo "ERROR: $ACCOUNT is missing these permissions on $kind ${resource#*/}:" >&2
+  for permission in "${missing[@]}"; do
+    printf '         %-40s in %s\n' "$permission" "$(role_for "$permission")" >&2
+  done
+  if [ "$kind" = project ]; then
+    echo "       Project Owner includes all of them." >&2
+  else
+    echo "       Logs Configuration Writer on the $kind includes them." >&2
   fi
+  return 1
+}
+
+# Takes the sink's permissions, then --, then the host project's. Checks the
+# sink's where the sink goes, and stops before any change if one is missing.
+check_all_permissions() {
+  local sink=() ok=true
+  while [ "$1" != -- ]; do sink+=("$1"); shift; done
+  shift
+  if org_wide; then
+    check_permissions "$SCOPE_RESOURCE" "${sink[@]}" || ok=false
+    check_permissions "projects/$PROJECT_ID" "$@" || ok=false
+  else
+    check_permissions "projects/$PROJECT_ID" "${sink[@]}" "$@" || ok=false
+  fi
+  "$ok" || { echo "       Nothing was changed." >&2; exit 1; }
   info "You have the permissions this needs."
 }
 
@@ -271,20 +409,78 @@ secret_exists() {
   gcloud secrets describe "$SECRET_NAME" $(secret_flags) >/dev/null 2>&1
 }
 
-sink_filter() {
-  local filter=$LOG_FILTER cluster clause=
-  for cluster in ${CLUSTERS[@]+"${CLUSTERS[@]}"}; do
-    clause="${clause:+$clause OR }resource.labels.cluster_name=\"$cluster\""
+# Prints (field="a" OR field="b") for the values given, or nothing
+any_of() {
+  local field=$1 value clause=
+  shift
+  for value in "$@"; do
+    clause="${clause:+$clause OR }$field=\"$value\""
   done
-  [ -n "$clause" ] && filter="$filter
-($clause)"
+  if [ -n "$clause" ]; then printf '(%s)' "$clause"; fi
+}
+
+sink_filter() {
+  local filter=$LOG_FILTER clause
+  for clause in "$(any_of resource.labels.project_id ${PROJECTS[@]+"${PROJECTS[@]}"})" \
+    "$(any_of resource.labels.cluster_name ${CLUSTERS[@]+"${CLUSTERS[@]}"})"; do
+    [ -n "$clause" ] && filter="$filter
+$clause"
+  done
   printf '%s' "$filter"
 }
 
+# True when the value is one of the others, or when there are no others
+listed() {
+  local value=$1 other
+  shift
+  [ $# -eq 0 ] && return 0
+  for other in "$@"; do
+    [ "$other" = "$value" ] && return 0
+  done
+  return 1
+}
+
+# Shows the GKE clusters under the organization or folder now, limited to
+# --projects and --cluster. The list only informs: the sink also covers clusters
+# created later. Cloud Asset Inventory bills the search to the host project.
+show_clusters() {
+  local names name lines=
+  if ! names=$(gcloud asset search-all-resources --scope "$SCOPE_RESOURCE" \
+    --asset-types container.googleapis.com/Cluster --billing-project "$PROJECT_ID" \
+    --format 'value(name)' 2>&1); then
+    info "Could not list the clusters: $(printf '%s\n' "$names" | head -n 1)"
+    if [[ "$names" == *SERVICE_DISABLED* || "$names" == *"has not been used"* ]]; then
+      info "This setup turns on the Cloud Asset API in $PROJECT_ID, so the next run lists them."
+    fi
+    info "The sink collects from every cluster either way."
+    return 0
+  fi
+  # //container.googleapis.com/projects/P/locations/L/clusters/C (zones/Z for zonal clusters)
+  while IFS= read -r name; do
+    [[ "$name" =~ /projects/([^/]+)/[a-z]+/([^/]+)/clusters/([^/]+)$ ]] || continue
+    listed "${BASH_REMATCH[1]}" ${PROJECTS[@]+"${PROJECTS[@]}"} || continue
+    listed "${BASH_REMATCH[3]}" ${CLUSTERS[@]+"${CLUSTERS[@]}"} || continue
+    lines="$lines${BASH_REMATCH[1]}: ${BASH_REMATCH[3]} (${BASH_REMATCH[2]})
+"
+  done <<< "$names"
+  if [ -z "$lines" ]; then
+    info "None yet. The sink collects from clusters created later."
+    return 0
+  fi
+  printf '%s' "$lines" | sort | while IFS= read -r name; do info "  $name"; done
+}
+
 install() {
-  local secret_path secret_state token writer state clusters_text
+  local secret_path secret_state token writer state clusters_text covered apis=("${APIS[@]}")
+  local replace_project_sink=false project_permissions=("${INSTALL_PERMISSIONS[@]}")
   check_account_and_project
-  check_permissions "${INSTALL_PERMISSIONS[@]}"
+  # A per-project setup in the host project shares the topic and function, so its
+  # sink would send that project's events a second time
+  if org_wide && gcloud logging sinks describe "$SINK" --project "$PROJECT_ID" >/dev/null 2>&1; then
+    replace_project_sink=true
+    project_permissions+=(logging.sinks.delete)
+  fi
+  check_all_permissions "${SINK_INSTALL_PERMISSIONS[@]}" -- "${project_permissions[@]}"
 
   if [ -n "$SECRET_LOCATION" ]; then
     secret_path="projects/$PROJECT_ID/locations/$SECRET_LOCATION/secrets/$SECRET_NAME/versions/latest"
@@ -292,19 +488,36 @@ install() {
     secret_path="projects/$PROJECT_ID/secrets/$SECRET_NAME/versions/latest"
   fi
   if secret_exists; then secret_state="exists, will be reused"; else secret_state="will be created"; fi
-  clusters_text="all clusters in the project"
-  [ ${#CLUSTERS[@]} -gt 0 ] && clusters_text="${CLUSTERS[*]}"
+  clusters_text="all clusters"
+  [ ${#CLUSTERS[@]} -gt 0 ] && clusters_text="clusters ${CLUSTERS[*]}"
+  covered="the project"
+  if [ ${#PROJECTS[@]} -gt 0 ]; then
+    covered="projects ${PROJECTS[*]}"
+  elif org_wide; then
+    covered="every project in it, including projects added later"
+  fi
 
-  step "This will set up, in project $PROJECT_ID:"
-  info "Secret:          $SECRET_NAME ${SECRET_LOCATION:+in $SECRET_LOCATION }($secret_state)"
-  info "Service account: $SERVICE_ACCOUNT"
-  info "Pub/Sub topic:   $TOPIC"
-  info "Log Router sink: $SINK (collects: $clusters_text)"
-  info "Function:        $FUNCTION in $REGION, sending to $API_URL"
+  step "This will set up:"
+  info "Log Router sink: $SINK on $SCOPE_LABEL, collecting $clusters_text in $covered"
+  info "In project $PROJECT_ID:"
+  info "  Secret:          $SECRET_NAME ${SECRET_LOCATION:+in $SECRET_LOCATION }($secret_state)"
+  info "  Service account: $SERVICE_ACCOUNT"
+  info "  Pub/Sub topic:   $TOPIC"
+  info "  Function:        $FUNCTION in $REGION, sending to $API_URL"
+  info "                   up to $BATCH_SIZE entries per request, within ${BATCH_MAX_WAIT_MS}ms"
+  if "$replace_project_sink"; then
+    info "  Per-project sink $SINK in $PROJECT_ID will be removed: the sink on $SCOPE_LABEL covers it"
+  fi
+  if org_wide; then
+    step "GKE clusters in $SCOPE_LABEL now"
+    show_clusters
+    # so later runs can list the clusters
+    apis+=(cloudasset.googleapis.com)
+  fi
   confirm "Continue?"
 
   step "Enabling APIs"
-  gcloud services enable "${APIS[@]}" --project "$PROJECT_ID"
+  gcloud services enable "${apis[@]}" --project "$PROJECT_ID"
 
   step "Collection token"
   if [ "$secret_state" = "will be created" ]; then
@@ -350,26 +563,35 @@ install() {
   fi
 
   step "Log Router sink"
-  if gcloud logging sinks describe "$SINK" --project "$PROJECT_ID" >/dev/null 2>&1; then
-    gcloud logging sinks update "$SINK" "pubsub.googleapis.com/projects/$PROJECT_ID/topics/$TOPIC" \
-      --log-filter "$(sink_filter)" --project "$PROJECT_ID" >/dev/null 2>&1
-    info "Updated sink $SINK"
+  if gcloud logging sinks describe "$SINK" "${SINK_FLAGS[@]}" >/dev/null 2>&1; then
+    quiet gcloud logging sinks update "$SINK" "pubsub.googleapis.com/projects/$PROJECT_ID/topics/$TOPIC" \
+      --log-filter "$(sink_filter)" "${SINK_WRITE_FLAGS[@]}"
+    info "Updated sink $SINK on $SCOPE_LABEL"
   else
-    gcloud logging sinks create "$SINK" "pubsub.googleapis.com/projects/$PROJECT_ID/topics/$TOPIC" \
-      --log-filter "$(sink_filter)" --project "$PROJECT_ID" >/dev/null 2>&1
-    info "Created sink $SINK"
+    quiet gcloud logging sinks create "$SINK" "pubsub.googleapis.com/projects/$PROJECT_ID/topics/$TOPIC" \
+      --log-filter "$(sink_filter)" "${SINK_WRITE_FLAGS[@]}"
+    info "Created sink $SINK on $SCOPE_LABEL"
   fi
-  writer=$(gcloud logging sinks describe "$SINK" --project "$PROJECT_ID" --format='value(writerIdentity)')
+  writer=$(gcloud logging sinks describe "$SINK" "${SINK_FLAGS[@]}" --format='value(writerIdentity)')
   retry gcloud pubsub topics add-iam-policy-binding "$TOPIC" --project "$PROJECT_ID" \
     --member "$writer" --role roles/pubsub.publisher
   info "The sink can publish to $TOPIC"
+  # only now that the new sink is in place, so that no event is missed
+  if "$replace_project_sink"; then
+    quiet gcloud logging sinks delete "$SINK" --project "$PROJECT_ID" --quiet
+    info "Removed the per-project sink $SINK in $PROJECT_ID"
+  fi
 
   step "Deploying function $FUNCTION (takes a few minutes)"
+  # Entries share a batch only when one instance runs many invocations at once,
+  # which takes a whole CPU, and memory for a burst of large entries
   gcloud functions deploy "$FUNCTION" --gen2 --project "$PROJECT_ID" --region "$REGION" \
     --runtime "$RUNTIME" --source "$SOURCE" --entry-point PubSubGKELogsCollection \
     --trigger-topic "$TOPIC" \
     --service-account "$SERVICE_ACCOUNT" --trigger-service-account "$SERVICE_ACCOUNT" \
-    --set-env-vars "API_URL=$API_URL,SECRET_NAME=$secret_path" --quiet --format none
+    --concurrency 1000 --cpu 1 --memory 1Gi --timeout 120s \
+    --set-env-vars "API_URL=$API_URL,SECRET_NAME=$secret_path,BATCH_SIZE=$BATCH_SIZE,BATCH_MAX_WAIT_MS=$BATCH_MAX_WAIT_MS" \
+    --quiet --format none
   retry gcloud functions add-invoker-policy-binding "$FUNCTION" --project "$PROJECT_ID" \
     --region "$REGION" --member "serviceAccount:$SERVICE_ACCOUNT"
   info "Only $SERVICE_ACCOUNT can invoke the function"
@@ -381,7 +603,7 @@ install() {
 
   cat <<EOF
 
-Done. GKE audit events in $PROJECT_ID now reach Stream Security within seconds.
+Done. GKE audit events in $SCOPE_LABEL now reach Stream Security within seconds.
 
 To check, make a change in a cluster as yourself, for example:
   kubectl create configmap streamsec-test -n default && kubectl delete configmap streamsec-test -n default
@@ -391,7 +613,7 @@ On a first install, runs in the first minutes can show status 403 while Google a
 service account's permissions. Pub/Sub retries them, so those events arrive a little later.
 A few minutes later the events show in Stream Security under Log Explorer > Kubernetes.
 
-To remove this setup: bash setup-realtime.sh --project $PROJECT_ID --region $REGION --uninstall
+To remove this setup: bash setup-realtime.sh $SCOPE_OPTION--project $PROJECT_ID --region $REGION --uninstall
 EOF
 }
 
@@ -399,18 +621,18 @@ uninstall() {
   local permissions=("${UNINSTALL_PERMISSIONS[@]}")
   check_account_and_project
   "$DELETE_SECRET" && permissions+=(secretmanager.secrets.delete)
-  check_permissions "${permissions[@]}"
+  check_all_permissions "${SINK_UNINSTALL_PERMISSIONS[@]}" -- "${permissions[@]}"
 
-  step "This will remove from project $PROJECT_ID:"
-  info "Log Router sink $SINK, function $FUNCTION in $REGION, topic $TOPIC"
-  info "Service account $SERVICE_ACCOUNT"
-  "$DELETE_SECRET" && info "Secret $SECRET_NAME"
+  step "This will remove:"
+  info "Log Router sink $SINK from $SCOPE_LABEL"
+  info "From project $PROJECT_ID: function $FUNCTION in $REGION, topic $TOPIC, service account $SERVICE_ACCOUNT"
+  "$DELETE_SECRET" && info "  and secret $SECRET_NAME"
   confirm "Continue?"
 
   step "Removing"
-  if gcloud logging sinks describe "$SINK" --project "$PROJECT_ID" >/dev/null 2>&1; then
-    gcloud logging sinks delete "$SINK" --project "$PROJECT_ID" --quiet >/dev/null 2>&1
-    info "Deleted sink $SINK"
+  if gcloud logging sinks describe "$SINK" "${SINK_FLAGS[@]}" >/dev/null 2>&1; then
+    gcloud logging sinks delete "$SINK" "${SINK_FLAGS[@]}" --quiet >/dev/null 2>&1
+    info "Deleted sink $SINK from $SCOPE_LABEL"
   else
     info "Sink $SINK not found, skipping"
   fi
@@ -454,4 +676,5 @@ if [ -n "$SECRET_LOCATION" ]; then
   export CLOUDSDK_API_ENDPOINT_OVERRIDES_SECRETMANAGER="https://secretmanager.$SECRET_LOCATION.rep.googleapis.com/"
 fi
 ask_for_missing
+set_scope
 if "$UNINSTALL"; then uninstall; else install; fi
