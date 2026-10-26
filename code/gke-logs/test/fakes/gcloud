@@ -7,12 +7,26 @@ printf '%s\n' "${call//$'\n'/\\n}" >> "$FAKE_LOG"
 
 project=
 location=
+organization=
+folder=
 prev=
 for arg in "$@"; do
   [ "$prev" = --project ] && project=$arg
   [ "$prev" = --location ] && location=$arg
+  [ "$prev" = --organization ] && organization=$arg
+  [ "$prev" = --folder ] && folder=$arg
   prev=$arg
 done
+
+# Organization and folder sinks are kept apart from project sinks, and each
+# kind has its own writer identity, as in Cloud Logging
+sink_scope=
+writer=service-123456789012
+if [ -n "$organization" ]; then
+  sink_scope=organizations/$organization/ writer=service-org-$organization
+elif [ -n "$folder" ]; then
+  sink_scope=folders/$folder/ writer=service-folder-$folder
+fi
 
 # Like the real gcloud, a regional secret is only reachable through its
 # regional endpoint
@@ -64,12 +78,18 @@ case "$command" in
   'pubsub topics add-iam-policy-binding') must_exist "topic/$name" ;;
   'pubsub topics delete') remove "topic/$name" ;;
   'logging sinks describe')
-    must_exist "sink/$name"
-    echo "serviceAccount:service-123456789012@gcp-sa-logging.iam.gserviceaccount.com"
+    must_exist "sink/$sink_scope$name"
+    echo "serviceAccount:$writer@gcp-sa-logging.iam.gserviceaccount.com"
     ;;
-  'logging sinks create') create "sink/$name" < /dev/null ;;
-  'logging sinks update') must_exist "sink/$name" ;;
-  'logging sinks delete') remove "sink/$name" ;;
+  'logging sinks create') create "sink/$sink_scope$name" < /dev/null ;;
+  'logging sinks update') must_exist "sink/$sink_scope$name" ;;
+  'logging sinks delete') remove "sink/$sink_scope$name" ;;
+  # The clusters in $FAKE_CLUSTERS (space separated resource names), or the
+  # error in $FAKE_ASSET_ERROR
+  'asset search-all-resources')
+    if [ -n "${FAKE_ASSET_ERROR-}" ]; then echo "$FAKE_ASSET_ERROR" >&2; exit 1; fi
+    for cluster in ${FAKE_CLUSTERS-}; do echo "$cluster"; done
+    ;;
   'functions describe') must_exist "function/$name"; echo ACTIVE ;;
   'functions deploy') exists "function/$name" || create "function/$name" < /dev/null ;;
   'functions add-invoker-policy-binding') must_exist "function/$name" ;;

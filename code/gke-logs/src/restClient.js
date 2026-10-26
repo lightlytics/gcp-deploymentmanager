@@ -3,13 +3,11 @@ const config = require('config')
 const { GKELogsBatch } = require('./models/gke')
 const { getSecretValue } = require('./secretManager')
 
+// The Stream Security URL with https:// when no scheme is given, and without
+// trailing slashes
 function formatUrl(url) {
-  // Ensure the URL starts with "http://" or "https://"
-  // Remove trailing forward slash if present
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    return `https://${url.replace(/\/+$/, '')}`
-  }
-  return url.replace(/\/+$/, '')
+  const withScheme = /^https?:\/\//.test(url) ? url : `https://${url}`
+  return withScheme.replace(/\/+$/, '')
 }
 
 class RestClient {
@@ -32,7 +30,8 @@ class RestClient {
 
     this.client = axios.create({
       baseURL: this.baseApiUrl.toString(),
-      timeout: 5 * 1000,
+      // a batch can be close to 1 MB
+      timeout: 15 * 1000,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json;q=0.5, text/plain;q=0.1',
@@ -41,13 +40,17 @@ class RestClient {
 
     // Set authentication token - from Secret Manager or config
     if (process.env.SECRET_NAME) {
+      // Without the token every request fails, so a request waits for it and
+      // fails with this error instead of being sent without it
       this.tokenLoadedPromise = getSecretValue(process.env.SECRET_NAME)
         .then(token => {
           this.client.defaults.headers.common[this.tokenHeader] = token
         })
         .catch(err => {
-          console.error('Failed to get API token from Secret Manager:', err)
+          throw new Error(`Could not read the collection token from ${process.env.SECRET_NAME}: ${err.message}`)
         })
+      // handled by the request that waits for it
+      this.tokenLoadedPromise.catch(() => {})
     } else if (config.has('apiToken')) {
       this.client.defaults.headers.common[this.tokenHeader] = config.get('apiToken')
       this.tokenLoadedPromise = Promise.resolve()
@@ -82,12 +85,11 @@ class RestClient {
     try {
       resp = await this.client.post(path, data)
     } catch (e) {
-      console.error(
-        `error while sending to Stream Security API - error message: ${e}, code: ${
-          e?.code || e?.response?.statusCode
-        }`,
-      )
-      throw e
+      // An axios error holds the request, token header included, so only its
+      // message and the response body go on
+      const body = e?.response?.data
+      const detail = body ? ` - ${(typeof body === 'string' ? body : JSON.stringify(body)).slice(0, 300)}` : ''
+      throw new Error(`${e.message}${detail}`)
     }
     return { body: resp.data, statusCode: resp.status }
   }
@@ -95,4 +97,5 @@ class RestClient {
 
 module.exports = {
   RestClient,
+  formatUrl,
 }
