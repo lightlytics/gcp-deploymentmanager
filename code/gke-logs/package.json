@@ -15,7 +15,7 @@
     "@google-cloud/functions-framework": "^3.5.1",
     "@google-cloud/secret-manager": "^6.0.1",
     "@google-cloud/storage": "^7.12.1",
-    "axios": "1.16.0",
+    "axios": "1.20.0",
     "config": "^3.3.12"
   }
 }
