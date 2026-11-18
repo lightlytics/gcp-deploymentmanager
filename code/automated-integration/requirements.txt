@@ -1,3 +1,2 @@
 google-cloud-config==0.1.17
-requests==2.31.0
 functions-framework==3.8.3

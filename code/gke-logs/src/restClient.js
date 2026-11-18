@@ -4,9 +4,15 @@ const { GKELogsBatch } = require('./models/gke')
 const { getSecretValue } = require('./secretManager')
 
 // The Stream Security URL with https:// when no scheme is given, and without
-// trailing slashes
+// trailing slashes. The token travels in a header, so plain http is refused
+// except to a local test server. The host is read from the parsed URL:
+// http://localhost@remote.example is remote.example.
 function formatUrl(url) {
-  const withScheme = /^https?:\/\//.test(url) ? url : `https://${url}`
+  const withScheme = /^https?:\/\//i.test(url) ? url : `https://${url}`
+  const { protocol, hostname } = new URL(withScheme)
+  if (protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(hostname)) {
+    throw new Error('API_URL must use https')
+  }
   return withScheme.replace(/\/+$/, '')
 }
 

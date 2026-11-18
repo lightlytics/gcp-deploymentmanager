@@ -2,13 +2,17 @@ const axios = require('axios')
 const config = require('config')
 const { getSecretValue } = require('./secretManager')
 
+// The Stream Security URL with https:// when no scheme is given, and without
+// trailing slashes. The token travels in a header, so plain http is refused
+// except to a local test server. The host is read from the parsed URL:
+// http://localhost@remote.example is remote.example.
 function formatUrl(url) {
-  // Ensure the URL starts with "http://" or "https://"
-  // Remove trailing forward slash if present
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    return `https://${url.replace(/\/+$/, '')}`
+  const withScheme = /^https?:\/\//i.test(url) ? url : `https://${url}`
+  const { protocol, hostname } = new URL(withScheme)
+  if (protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(hostname)) {
+    throw new Error('API_URL must use https')
   }
-  return url.replace(/\/+$/, '')
+  return withScheme.replace(/\/+$/, '')
 }
 
 class RestClient {
@@ -78,12 +82,11 @@ class RestClient {
     try {
       resp = await this.client.post(path, data)
     } catch (e) {
-      console.error(
-        `error while sending to Stream Security API - error message: ${e}, code: ${
-          e?.code || e?.response?.statusCode
-        }`,
-      )
-      throw e
+      // An axios error holds the request, token header included, so only its
+      // message and the response body go on
+      const body = e?.response?.data
+      const detail = body ? ` - ${(typeof body === 'string' ? body : JSON.stringify(body)).slice(0, 300)}` : ''
+      throw new Error(`${e.message}${detail}`)
     }
     return { body: resp.data, statusCode: resp.status }
   }

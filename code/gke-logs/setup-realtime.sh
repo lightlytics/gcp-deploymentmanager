@@ -314,6 +314,8 @@ ask_for_missing() {
   # none is given) and the host, and drop the path a URL copied from the browser has
   if [ -n "$API_URL" ]; then
     [[ "$API_URL" =~ ^https?:// ]] || API_URL="https://$API_URL"
+    # the function sends the collection token to this URL
+    [[ "$API_URL" =~ ^https:// ]] || die "The Stream Security URL must use https."
     if [[ "$API_URL" =~ ^(https?://[^/?#]+) ]]; then API_URL=${BASH_REMATCH[1]}; fi
   fi
 }
