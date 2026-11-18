@@ -1,7 +1,4 @@
-import base64
-import json
 import os
-import requests
 import logging
 from google.cloud.config import Deployment, ConfigClient
 from cloudevents.http import CloudEvent
@@ -20,7 +17,7 @@ def handle_project_event(cloud_event: CloudEvent) -> None:
     """
     try:
         logger.info("Starting project event handler")
-        logger.info(f"Received event: {cloud_event}")
+        logger.info(f"Received event: {cloud_event.get('type')} {cloud_event.get('id')}")
         
         # Get the deployment details from environment variables
         deployment_name = os.environ.get('INFRA_MANAGER_DEPLOYMENT_NAME')
@@ -46,8 +43,8 @@ def handle_project_event(cloud_event: CloudEvent) -> None:
 
         # Get the current deployment configuration
         deployment_config = deployment.terraform_blueprint
+        # not logged: its input values can hold tokens
         logger.info("Retrieved deployment configuration")
-        logger.info(f"Deployment configuration: {deployment_config}")
 
         # Update the deployment with the same configuration
         logger.info("Updating deployment with current configuration")

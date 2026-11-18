@@ -147,6 +147,14 @@ describe('setup-realtime.sh install', () => {
     assert.match(stdout, /sending to https:\/\/acme\.streamsec\.io\n/)
   })
 
+  it('refuses a plain http URL before changing anything, as the token would travel unencrypted', () => {
+    const { status, stderr, calls } = run(['--project', 'acme-prod', '--api-url', 'http://acme.streamsec.io', '--yes'], TOKEN)
+
+    assert.notEqual(status, 0)
+    assert.match(stderr, /must use https/)
+    assert.deepEqual(calls, [])
+  })
+
   it('deploys with the batch size and wait given', () => {
     const { status, stderr, calls } = run(
       [...INSTALL, '--batch-size', '100', '--batch-max-wait-ms', '5000'],

@@ -204,6 +204,13 @@ describe('sending to Stream Security', () => {
     assert.equal(formatUrl('app.streamsec.io/'), 'https://app.streamsec.io')
     assert.equal(formatUrl('http://localhost:8080'), 'http://localhost:8080')
   })
+
+  it('refuses a plain http API_URL, which would send the token unencrypted', () => {
+    const { formatUrl } = require('../src/restClient')
+
+    assert.throws(() => formatUrl('http://app.streamsec.io'), /must use https/)
+    assert.throws(() => formatUrl('http://localhost.evil.io'), /must use https/)
+  })
 })
 
 describe('PubSubGKELogsCollection', () => {

@@ -14,7 +14,8 @@ const processVPCFlowLogs = async (contentString) => {
         const log = parseFlowlog(JSON.parse(line))
         logs.push(log)
       } catch (e) {
-        console.error('Error parsing line:', line, e)
+        // the line itself stays out of the logs
+        console.error(`Error parsing a flow log line: ${e.message}`)
       }
     }
   })
@@ -49,7 +50,7 @@ const processVPCFlowLogs = async (contentString) => {
       flowsBatch.logs.length,
     )
   } catch (error) {
-    console.error(`Error sending log data:`, error)
+    console.error(`Error sending log data: ${error.message}`)
   }
 }
 
@@ -68,7 +69,7 @@ const StorageFlowlogsCollection = async (event, context) => {
 
     await processVPCFlowLogs(contentString)
   } catch (error) {
-    console.error(`Error processing file ${fileName}:`, error)
+    console.error(`Error processing file ${fileName}: ${error.message}`)
   }
 }
 
