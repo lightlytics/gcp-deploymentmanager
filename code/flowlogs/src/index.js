@@ -14,8 +14,8 @@ const processVPCFlowLogs = async (contentString) => {
         const log = parseFlowlog(JSON.parse(line))
         logs.push(log)
       } catch (e) {
-        // the line itself stays out of the logs
-        console.error(`Error parsing a flow log line: ${e.message}`)
+        // neither the line nor the parser's message, which quotes it
+        console.error(`Skipped a flow log line that could not be parsed (${e.name})`)
       }
     }
   })

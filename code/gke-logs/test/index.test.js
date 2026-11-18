@@ -210,6 +210,9 @@ describe('sending to Stream Security', () => {
 
     assert.throws(() => formatUrl('http://app.streamsec.io'), /must use https/)
     assert.throws(() => formatUrl('http://localhost.evil.io'), /must use https/)
+    assert.throws(() => formatUrl('http://localhost:80@evil.io'), /must use https/)
+    assert.throws(() => formatUrl('http://127.0.0.1@evil.io/'), /must use https/)
+    assert.equal(formatUrl('HTTPS://app.streamsec.io'), 'HTTPS://app.streamsec.io')
   })
 })
 
